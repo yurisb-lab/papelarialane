@@ -1,0 +1,8 @@
+Fontes usadas no Aplicativo da Lavínia (só o conjunto "latin", baixado do Google Fonts):
+
+Fredoka, Nunito, Pacifico, Caveat, Lobster, Permanent Marker, Rubik Bubbles,
+Dancing Script e Bungee.
+
+Todas são distribuídas sob a SIL Open Font License, versão 1.1
+(https://openfontlicense.org), que permite usar, guardar e distribuir as fontes
+junto com outros programas. Os direitos de cada fonte são dos seus autores.
