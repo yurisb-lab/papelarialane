@@ -4106,21 +4106,23 @@ span.slot {
   transition: transform 0.45s var(--ease-out);
 }
 .art-btn--a {
-  width: 92px;
-  height: 92px;
-  margin: -78px 0 0 -112px;
+  width: 72px;
+  height: 72px;
+  margin: 26px 0 0 -88px;
   background: radial-gradient(circle at 35% 30%, #d99476, #a5492b);
+  z-index: 2;
 }
 .art-btn--b {
-  width: 74px;
-  height: 74px;
-  margin: 18px 0 0 -96px;
+  width: 62px;
+  height: 62px;
+  margin: -98px 0 0 -54px;
   background: radial-gradient(circle at 35% 30%, #9fbaa6, #3b6551);
+  z-index: 2;
 }
 .art-btn--c {
   width: 118px;
   height: 118px;
-  margin: -46px 0 0 -18px;
+  margin: -50px 0 0 -28px;
   background: radial-gradient(circle at 35% 30%, #ecd496, #c39a45);
   z-index: 1;
 }
@@ -4136,7 +4138,7 @@ span.slot {
   left: 50%;
   width: 44px;
   height: 150px;
-  margin: -88px 0 0 64px;
+  margin: -88px 0 0 76px;
   border-radius: 6px;
   border: 5px solid #fff;
   background: repeating-linear-gradient(180deg, #dde8df 0 10px, #f1f6f2 10px 20px);
@@ -4155,7 +4157,21 @@ span.slot {
   box-shadow: inset 0 0 0 2px #3d6a55;
 }
 .tool-tile:hover .art-btn--a {
-  transform: translate(-10px, -6px) rotate(-8deg);
+  transform: translate(-8px, 6px) rotate(-8deg);
+}
+/* Photo card no tamanho padrão (5,3 × 8,5 cm): .mini-card já tem essa proporção. */
+.mini-card--home {
+  transform: translateX(-96px) rotate(-8deg);
+}
+.mini-card--home .mini-card__sky {
+  background:
+    radial-gradient(circle at 30% 24%, #fbe7b0 0 13%, transparent 14%),
+    radial-gradient(ellipse 90% 40% at 70% 108%, #3b6551 0 60%, transparent 61%),
+    radial-gradient(ellipse 80% 34% at 18% 104%, #7f9e88 0 60%, transparent 61%),
+    linear-gradient(180deg, #e6b59b, #f6dccb 70%);
+}
+.tool-tile:hover .mini-card--home {
+  transform: translate(-104px, -4px) rotate(-12deg);
 }
 .tool-tile:hover .art-btn--c {
   transform: scale(1.05);
