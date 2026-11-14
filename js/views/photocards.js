@@ -35,7 +35,7 @@ import { listThemes, applyTheme } from '../themes.js';
 import { icon } from '../icons.js';
 import { createBgRemover } from '../bg-remover.js';
 import { toast } from '../toast.js';
-import { cloudEnabled, queueCard, syncCloud, onCloudChange, listCloud, fetchCloudCard, daysText, KEEP_DAYS } from '../cloud.js';
+import { cloudEnabled, queueCard, syncCloud, onCloudChange, listCloud, fetchCloudCard, savedText } from '../cloud.js';
 import { TABS, PEN_SIZES, panelHtml, layerLabel } from './pc-panels.js';
 import { saveSticker, listStickers, onStickersChange, stickerUrls, revokeUrls, trimTransparent, hasTransparency } from '../library.js';
 import { designFiles, shareOrDownload } from '../export.js';
@@ -188,7 +188,7 @@ function template() {
           <span class="cloud__title">${icon('cloud', { size: 22 })}Guardados na nuvem</span>
           <span class="cloud__status" data-cloud-status></span>
         </summary>
-        <p class="cloud__tip">Cada card salvo fica guardado aqui por ${KEEP_DAYS} dias, mesmo se for apagado da folha. Toque num card para trazer ele de volta.</p>
+        <p class="cloud__tip">Cada peça salva fica guardada aqui, sem prazo, mesmo se sair da folha. Ela só sai da nuvem quando você apaga no fichário. Toque numa peça para trazer de volta.</p>
         <ul class="cloud__grid" data-cloud-list></ul>
       </details>
 
@@ -1908,9 +1908,9 @@ export async function mount(root) {
         const local = cards.find((x) => x.id === c.id);
         const here = !!local;
         const img = c.thumbUrl ? `<img class="${c.orientation === 'landscape' ? 'is-landscape' : ''}" src="${c.thumbUrl}" alt="" loading="lazy" draggable="false">` : '';
-        return `<li><button type="button" class="cloud__card" data-cloud-open="${c.id}" aria-label="${here ? 'Abrir este card' : 'Trazer este card de volta para a folha'}, ${daysText(c.daysLeft)}">
+        return `<li><button type="button" class="cloud__card" data-cloud-open="${c.id}" aria-label="${here ? 'Abrir este card' : 'Trazer este card de volta para a folha'}, ${savedText(c.savedAt)}">
           <span class="cloud__thumb">${img}</span>
-          <span class="cloud__days">${daysText(c.daysLeft)}</span>
+          <span class="cloud__days">${savedText(c.savedAt)}</span>
           ${here ? `<span class="tag">${onSheet(local) ? 'na folha' : 'no fichário'}</span>` : ''}
         </button></li>`;
       })

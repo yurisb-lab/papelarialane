@@ -10,6 +10,7 @@ import { designFiles, shareOrDownload } from '../export.js';
 import { openModal } from '../modal.js';
 import { openShareToGroup } from '../share.js';
 import { cloudEnabled as groupsEnabled } from '../group.js';
+import { forgetCard, keepCard } from '../cloud.js';
 
 export const title = 'Meu fichário';
 
@@ -214,6 +215,7 @@ export async function mount(root) {
             }
             const rec = plain(c);
             await db.deleteCard(c.id);
+            forgetCard(c.id); // apagou de vez: sai da nuvem também
             close();
             await load();
             toast('Apagado.', {
@@ -221,6 +223,7 @@ export async function mount(root) {
               duration: 6000,
               onAction: async () => {
                 await db.putCard(rec);
+                keepCard(rec.id);
                 load();
               },
             });
