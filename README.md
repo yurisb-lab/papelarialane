@@ -23,6 +23,8 @@ Feito a partir do motor do [Aplicativo da Lavínia](https://github.com/yurisb-la
 - a linha verde, a borda do botton;
 - o pontilhado verde, a área segura (textos e o mais importante ficam dentro dela).
 
+**Ver botton pronto** (no editor, embaixo do card, e no fichário, ao abrir um botton) mostra a arte como fica depois de prensada: só o círculo da frente, a beirada curvando na borda, o brilho do plástico (ou fosco) e a espessura. Passando o dedo em cima, o botton inclina e o brilho acompanha. Também mostra o verso (metal com alfinete), troca o fundo (papel, jeans, rosa, escuro) e salva a prévia como imagem PNG de fundo transparente.
+
 A parte de fora da linha verde aparece mais clarinha, porque vai para trás do botton. As medidas da Mecolour ficam em `js/card.js` (`FORMATS`); se a máquina mudar, é só trocar ali.
 
 ## Folha A4
@@ -135,6 +137,8 @@ js/pdftools.js        ferramentas de PDF (extrair, dividir, juntar, girar, compr
 js/views/pdf.js       tela PDF
 js/backup.js          cópia de segurança (.zip com tudo) e volta da cópia
 js/views/backup.js    tela Cópia de segurança
+js/mockup.js          prévia realista do botton (cúpula, brilho, verso de metal), em canvas
+js/views/button-preview.js  janelinha "Ver botton pronto"
 ```
 
 **Ao publicar mudanças:** aumente `VERSION` em `sw.js` para os aparelhos baixarem a versão nova.
@@ -144,5 +148,4 @@ js/views/backup.js    tela Cópia de segurança
 - **Agenda A5 com datas:** escolher o ano e as datas saírem sozinhas, com feriados.
 - **Pedidos:** cliente, prazo, etapa e prévia para aprovação.
 - **Calculadora de preço.**
-- **Prévia realista do botton.**
 - **Linha de corte dos adesivos** no kit da Silhouette.

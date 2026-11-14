@@ -37,6 +37,7 @@ import { createBgRemover } from '../bg-remover.js';
 import { toast } from '../toast.js';
 import { cloudEnabled, queueCard, syncCloud, onCloudChange, listCloud, fetchCloudCard, savedText } from '../cloud.js';
 import { TABS, PEN_SIZES, panelHtml, layerLabel } from './pc-panels.js';
+import { openButtonPreview } from './button-preview.js';
 import { saveSticker, listStickers, onStickersChange, stickerUrls, revokeUrls, trimTransparent, hasTransparency } from '../library.js';
 import { designFiles, shareOrDownload } from '../export.js';
 import { onSheet, duplicateRecord, plain, putRecord, thumbBlobFor } from '../records.js';
@@ -170,6 +171,7 @@ function template() {
       </div>
       <div class="actions actions--more">
         <button type="button" class="btn btn--soft btn--sm" data-act="save-image">${icon('download', { size: 20 })}<span data-save-image-label>Salvar imagem</span></button>
+        <button type="button" class="btn btn--soft btn--sm" data-act="button-preview" hidden>${icon('sparkle', { size: 20 })}Ver botton pronto</button>
         <button type="button" class="btn btn--soft btn--sm" data-act="series">${icon('stack', { size: 20 })}Fazer série</button>
         ${groupsEnabled ? `<button type="button" class="btn btn--soft btn--sm" data-act="share-group">${icon('users', { size: 20 })}<span>Mostrar pra turma</span></button>` : ''}
         <a class="btn btn--soft btn--sm" href="#/fichario">${icon('book', { size: 20 })}Meu fichário</a>
@@ -357,6 +359,8 @@ export async function mount(root) {
     $('[data-act="save"]').disabled = isEmpty(d);
     $('[data-act="new"]').disabled = lock;
     $('[data-act="save-image"]').disabled = lock || isEmpty(d);
+    $('[data-act="button-preview"]').hidden = !f.circle;
+    $('[data-act="button-preview"]').disabled = lock || isEmpty(d);
     $('[data-act="series"]').disabled = lock;
     if ($('[data-act="share-group"]')) $('[data-act="share-group"]').disabled = lock || isEmpty(d);
     $('[data-empty]').hidden = lock || draw.active || sideName !== 'front' || s.layers.length > 0 || !editor.cells().length;
@@ -785,6 +789,25 @@ export async function mount(root) {
     } finally {
       btn.classList.remove('is-busy');
       label.textContent = 'Salvar imagem';
+      syncChrome();
+    }
+  }
+
+  // Ver botton pronto: a arte como fica depois de prensada (cúpula, brilho, verso de metal).
+  async function showButtonPreview() {
+    if (draw.active) finishDraw();
+    if (bg.active) await finishBg();
+    if (isEmpty(editor.design)) return;
+    const btn = $('[data-act="button-preview"]');
+    btn.disabled = true;
+    btn.classList.add('is-busy');
+    try {
+      await openButtonPreview({ design: clone(editor.design), getImg });
+    } catch (err) {
+      console.error(err);
+      toast('Não consegui montar a prévia. Tente de novo.', { kind: 'error' });
+    } finally {
+      btn.classList.remove('is-busy');
       syncChrome();
     }
   }
@@ -2144,6 +2167,8 @@ export async function mount(root) {
           return finishDraw();
         case 'save-image':
           return saveImage();
+        case 'button-preview':
+          return showButtonPreview();
         case 'series':
           return openSeries();
         case 'share-group':

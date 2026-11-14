@@ -9,6 +9,7 @@ import { allRecords, isStickerRec, onSheet, plain, duplicateRecord, loadImageMap
 import { designFiles, shareOrDownload } from '../export.js';
 import { openModal } from '../modal.js';
 import { openShareToGroup } from '../share.js';
+import { openButtonPreview } from './button-preview.js';
 import { cloudEnabled as groupsEnabled } from '../group.js';
 import { forgetCard, keepCard } from '../cloud.js';
 
@@ -152,6 +153,7 @@ export async function mount(root) {
             <button type="button" class="btn btn--soft" data-do="sheet">${icon(onSheet(c) ? 'trash' : 'printer', { size: 20 })}${onSheet(c) ? 'Tirar da folha' : 'Pôr na folha'}</button>
             <button type="button" class="btn btn--soft" data-do="image">${icon('download', { size: 20 })}${back ? 'Salvar imagens' : 'Salvar imagem'}</button>
             ${groupsEnabled ? `<button type="button" class="btn btn--soft" data-do="group">${icon('users', { size: 20 })}Mostrar pra turma</button>` : ''}
+            ${f.circle ? `<button type="button" class="btn btn--soft" data-do="preview">${icon('sparkle', { size: 20 })}Ver botton pronto</button>` : ''}
             <button type="button" class="btn btn--soft" data-do="dup">${icon('copy', { size: 20 })}Duplicar</button>
             <label class="field">
               <span class="field__label">${icon('folder', { size: 18 })} Pasta</span>
@@ -191,6 +193,18 @@ export async function mount(root) {
             const m = await loadImageMap(c.images);
             close();
             await openShareToGroup({ design: c.design, getImg: (k) => m.get(k) || null, cardId: c.id, onDone: () => releaseMap(m) });
+          } else if (what === 'preview') {
+            b.disabled = true;
+            b.classList.add('is-busy');
+            const m = await loadImageMap(c.images);
+            close();
+            try {
+              await openButtonPreview({ design: c.design, getImg: (k) => m.get(k) || null, onDone: () => releaseMap(m) });
+            } catch (err) {
+              console.error(err);
+              releaseMap(m);
+              toast('Não consegui montar a prévia.', { kind: 'error' });
+            }
           } else if (what === 'image') {
             b.disabled = true;
             b.classList.add('is-busy');
