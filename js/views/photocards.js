@@ -60,13 +60,14 @@ const sliderToZoom = (v) => ZMIN * Math.pow(ZMAX / ZMIN, v / 1000);
 const FRAME_COLOR = { solid: '#ffffff', polaroid: '#ffffff', double: '#ffffff', stitch: '#ff9cc2', dots: '#ff9cc2', hearts: '#ff9cc2', checker: '#ff9cc2', stripes: '#b79cff' };
 
 const FORMAT_GROUPS = [...new Set(FORMATS.map((f) => f.group))];
+const lastInGroup = {}; // último tamanho escolhido em cada categoria
 
 function shapeStyle(f) {
   if (f.circle) {
-    const s = Math.round(14 + f.face / 3);
+    const s = Math.round(10 + f.face / 4);
     return `width:${s}px;height:${s}px`;
   }
-  return `width:${Math.round((f.w / f.h) * 34)}px`;
+  return `width:${Math.max(8, Math.round((f.w / f.h) * 26))}px`;
 }
 
 const sizeText = (d) => {
@@ -89,16 +90,22 @@ function template() {
         </div>
       </div>
 
-      <div class="formats" role="group" aria-label="O que você quer fazer">
+      <div class="formats">
+        <div class="formats__tabs" role="group" aria-label="O que você quer fazer">
+          ${FORMAT_GROUPS.map(
+            (g, i) => `<button type="button" class="formats__tab" data-format-group="${i}" aria-pressed="false">${g}</button>`
+          ).join('')}
+        </div>
         ${FORMAT_GROUPS.map(
-          (g) =>
-            `<span class="formats__group">${g}</span>` +
+          (g, i) =>
+            `<div class="formats__btns" role="group" aria-label="${g}" data-group-set="${i}" hidden>` +
             FORMATS.filter((f) => f.group === g)
               .map(
                 (f) => `<button type="button" class="format-btn" data-format="${f.id}" aria-pressed="${f.id === 'card'}" title="${f.name}">
             <span class="format-btn__shape${f.circle ? ' format-btn__shape--circle' : ''}" style="${shapeStyle(f)}"></span><span>${f.short}</span></button>`
               )
-              .join('')
+              .join('') +
+            `</div>`
         ).join('')}
       </div>
       <label class="check check--inline" data-hole-row hidden>
@@ -301,11 +308,18 @@ export async function mount(root) {
     const sideName = editor.getSideName();
     const lock = bg.active;
     const f = formatInfo(d.format);
+    lastInGroup[f.group] = f.id;
     $('[data-format-title]').textContent = f.name;
     $$('[data-format]').forEach((b) => {
       b.setAttribute('aria-pressed', String(b.dataset.format === f.id));
       b.disabled = lock;
     });
+    const gi = String(FORMAT_GROUPS.indexOf(f.group));
+    $$('[data-format-group]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.formatGroup === gi));
+      b.disabled = lock;
+    });
+    $$('[data-group-set]').forEach((el) => (el.hidden = el.dataset.groupSet !== gi));
     $('[data-orient-seg]').hidden = !f.rotate;
     $$('[data-side-label]').forEach((el, i) => (el.textContent = f.sides[i]));
     root.querySelector('.seg--sides').hidden = !!f.noBack;
@@ -2215,6 +2229,12 @@ export async function mount(root) {
 
     if (ds.tab) return setTab(ds.tab);
     if (ds.format) return setFormat(ds.format);
+    if (ds.formatGroup) {
+      // categoria: volta para o último tamanho usado nela (ou o primeiro)
+      const g = FORMAT_GROUPS[+ds.formatGroup];
+      if (g === formatInfo(editor.design.format).group) return;
+      return setFormat(lastInGroup[g] || FORMATS.find((f) => f.group === g).id);
+    }
     if (ds.pack) {
       stickerPack = ds.pack;
       return renderPanel(true);

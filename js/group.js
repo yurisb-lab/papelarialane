@@ -14,7 +14,9 @@ import { ensureFonts } from './fonts.js';
 import { canvasToBlob } from './image.js';
 import { FORMATS, sideHasContent } from './card.js';
 
-export { cloudEnabled };
+// A "Minha turma" é só do app da Lavínia: a Central usa a nuvem apenas para guardar os cards.
+export const groupsEnabled = false;
+export { groupsEnabled as cloudEnabled };
 export const POST_DAYS = 30;
 const DAY = 24 * 3600 * 1000;
 const BUCKET = 'groups';

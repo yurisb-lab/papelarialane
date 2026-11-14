@@ -3836,18 +3836,89 @@ span.slot {
    ========================================================= */
 
 /* Seletor de formatos em grupos */
-.formats__group {
+.formats {
+  display: grid;
+  gap: var(--s2);
+  overflow: visible;
+  padding: 0;
+  justify-items: start;
+}
+.formats__tabs {
+  display: flex;
+  gap: 2px;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 2px solid var(--pink-line);
+}
+.formats__tabs::-webkit-scrollbar {
+  display: none;
+}
+.formats__tab {
   flex: none;
-  align-self: center;
-  padding: 0 2px 0 var(--s2);
-  font-size: 13px;
+  position: relative;
+  min-height: 40px;
+  padding: 0 var(--s3);
+  font-size: 15px;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  color: var(--ink-2);
+  border-radius: 10px 10px 0 0;
+  transition: color 0.2s, background 0.2s;
+}
+.formats__tab:hover:not(:disabled) {
+  background: var(--pink-soft);
+}
+.formats__tab[aria-pressed='true'] {
   color: var(--lilac-ink);
 }
-.formats__group:first-child {
-  padding-left: 0;
+.formats__tab[aria-pressed='true']::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -2px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--lilac-ink);
+}
+.formats__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+.formats__btns[hidden] {
+  display: none;
+}
+@media (max-width: 480px) {
+  .formats__tab {
+    padding: 0 9px;
+    font-size: 14px;
+  }
+}
+.formats .format-btn {
+  min-height: 40px;
+  padding: 0 var(--s3) 0 10px;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.formats .format-btn:hover:not(:disabled):not([aria-pressed='true']) {
+  background: var(--pink-soft);
+}
+.formats .format-btn[aria-pressed='true'] {
+  background: var(--lilac-ink);
+  color: #fff;
+}
+.formats .format-btn__shape {
+  height: 26px;
+  max-width: 26px;
+  border-width: 2px;
 }
 .format-btn__shape--circle {
   border-radius: 50%;
