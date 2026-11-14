@@ -1,4 +1,6 @@
-// Cópia dos cards na nuvem (Supabase), guardada por 30 dias depois da última vez que o card foi salvo.
+// Cópia dos cards na nuvem (Supabase), no mesmo banco do app da Lavínia.
+// As peças da Central ficam marcadas com app = 'elane' e não têm prazo: só saem da nuvem
+// quando a Elane apaga a peça no app (a limpeza de 30 dias vale só para os cards da Lavínia).
 //
 // Cada aparelho ganha sozinho uma conta anônima (não precisa digitar nada) e só vê os próprios cards.
 // Na nuvem, cada card fica em <conta>/<card>/: front.png e back.png (o card pronto),
@@ -12,8 +14,7 @@ import { ensureFonts } from './fonts.js';
 import { blobToImage, releaseImage, canvasToBlob } from './image.js';
 import { sideHasContent, migrateRecord } from './card.js';
 
-export const KEEP_DAYS = 30;
-const DAY = 24 * 3600 * 1000;
+const APP = 'elane';
 const BUCKET = 'cards';
 const IMAGE_PX = 1004; // lado maior da imagem pronta: 8,5 cm a 300 dpi
 export const cloudEnabled = !!(CLOUD.url && CLOUD.key);
@@ -161,7 +162,7 @@ async function pushCard(record) {
     method: 'POST',
     token,
     headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-    json: { owner: uid, card_id: record.id, orientation: record.design.orientation === 'landscape' ? 'landscape' : 'portrait', has_back: !!back, copies: record.copies || 1, files },
+    json: { owner: uid, app: APP, card_id: record.id, orientation: record.design.orientation === 'landscape' ? 'landscape' : 'portrait', has_back: !!back, copies: record.copies || 1, files },
   });
 
   const stale = [...before].filter((f) => !files.includes(f)).map((f) => `${base}/${f}`);
@@ -171,6 +172,46 @@ async function pushCard(record) {
 // A fila guarda { id do card: quando foi salvo }, para não esquecer um card salvo de novo durante o envio.
 async function getQueue() {
   return (await db.getMeta('cloudQueue').catch(() => null)) || {};
+}
+
+// Peças apagadas no app esperando para sair da nuvem (se estiver sem internet, sai depois).
+async function getDeletes() {
+  return (await db.getMeta('cloudDeletes').catch(() => null)) || [];
+}
+
+async function setDeletes(list) {
+  await db.setMeta('cloudDeletes', list).catch(() => {});
+}
+
+// A Elane apagou a peça de vez: tira da nuvem também (os arquivos e o registro).
+export async function forgetCard(id) {
+  if (!cloudEnabled) return;
+  const q = await getQueue();
+  if (id in q) {
+    delete q[id];
+    await db.setMeta('cloudQueue', q).catch(() => {});
+  }
+  const del = await getDeletes();
+  if (!del.includes(id)) await setDeletes([...del, id]);
+  syncCloud();
+}
+
+// "Desfazer" logo depois de apagar: a peça não sai mais da nuvem (e sobe de novo, se já tiver saído).
+export async function keepCard(id) {
+  if (!cloudEnabled) return;
+  await setDeletes((await getDeletes()).filter((x) => x !== id));
+  return queueCard(id);
+}
+
+async function removeCard(id) {
+  const { access_token: token, user_id: uid } = await getSession();
+  const base = `${uid}/${id}`;
+  const rows = await (await call(`/rest/v1/saved_cards?select=files&card_id=eq.${encodeURIComponent(id)}`, { token })).json();
+  const files = (rows[0] && rows[0].files) || [];
+  if (files.length) {
+    await call(`/storage/v1/object/${BUCKET}`, { method: 'DELETE', token, json: { prefixes: files.map((f) => `${base}/${f}`) } });
+  }
+  await call(`/rest/v1/saved_cards?card_id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', token, headers: { Prefer: 'return=minimal' } });
 }
 
 export async function queueCard(id) {
@@ -204,10 +245,22 @@ export function syncCloud() {
 async function runQueue() {
   clearTimeout(retryTimer);
   let q = await getQueue();
-  pendingCount = Object.keys(q).length;
+  let dels = await getDeletes();
+  pendingCount = Object.keys(q).length + dels.length;
   if (!pendingCount) return setState('idle');
   if (navigator.onLine === false) return setState('offline');
   setState('syncing');
+  for (const id of dels) {
+    try {
+      await removeCard(id);
+    } catch (err) {
+      console.warn(err);
+      retryTimer = setTimeout(syncCloud, 60_000);
+      return setState(err.status ? 'error' : 'offline', { message: err.message });
+    }
+    await setDeletes((await getDeletes()).filter((x) => x !== id));
+    pendingCount--;
+  }
   for (const [id, stamp] of Object.entries(q)) {
     try {
       const rec = await db.getCard(id);
@@ -222,7 +275,7 @@ async function runQueue() {
       delete q[id];
       await db.setMeta('cloudQueue', q).catch(() => {});
     }
-    pendingCount = Object.keys(q).length;
+    pendingCount = Object.keys(q).length + (await getDeletes()).length;
   }
   setState('idle', { uploaded: true });
 }
@@ -235,12 +288,12 @@ if (cloudEnabled && typeof window !== 'undefined') {
 export async function listCloud() {
   const { access_token: token, user_id: uid } = await getSession();
   const rows = await (
-    await call('/rest/v1/saved_cards?select=card_id,orientation,has_back,updated_at&order=updated_at.desc', { token })
+    await call(`/rest/v1/saved_cards?select=card_id,orientation,has_back,updated_at&app=eq.${APP}&order=updated_at.desc`, { token })
   ).json();
-  const now = Date.now();
+  const gone = new Set(await getDeletes());
   const list = rows
-    .map((r) => ({ id: r.card_id, orientation: r.orientation, hasBack: r.has_back, expiresAt: Date.parse(r.updated_at) + KEEP_DAYS * DAY }))
-    .filter((c) => c.expiresAt > now);
+    .filter((r) => !gone.has(r.card_id))
+    .map((r) => ({ id: r.card_id, orientation: r.orientation, hasBack: r.has_back, savedAt: Date.parse(r.updated_at) }));
   if (!list.length) return list;
   const signed = await (
     await call(`/storage/v1/object/sign/${BUCKET}`, {
@@ -250,7 +303,7 @@ export async function listCloud() {
     })
   ).json();
   const urls = new Map(signed.filter((s) => s.signedURL).map((s) => [s.path, `${CLOUD.url}/storage/v1${s.signedURL}`]));
-  return list.map((c) => ({ ...c, thumbUrl: urls.get(`${uid}/${c.id}/front.png`) || null, daysLeft: Math.max(1, Math.ceil((c.expiresAt - now) / DAY)) }));
+  return list.map((c) => ({ ...c, thumbUrl: urls.get(`${uid}/${c.id}/front.png`) || null }));
 }
 
 async function download(token, path) {
@@ -268,6 +321,8 @@ export async function fetchCloudCard(id) {
   return { v: 2, id: project.id || id, createdAt: project.createdAt || Date.now(), copies: project.copies || 1, design: project.design, images, thumbBlob: thumb };
 }
 
-export function daysText(n) {
-  return n === 1 ? 'falta 1 dia' : `faltam ${n} dias`;
+// Quando a peça foi guardada pela última vez (ex.: "salvo em 14/11").
+export function savedText(ms) {
+  const d = new Date(ms);
+  return `salvo em ${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 }

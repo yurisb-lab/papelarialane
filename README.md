@@ -81,13 +81,14 @@ No tablet, abra o endereço e use “Adicionar à tela de início”: a Central 
 
 Para testar no computador: nesta pasta, rode `python3 -m http.server` e abra `http://localhost:8000`.
 
-## Nuvem (30 dias)
+## Nuvem (sem prazo)
 
 A Central usa o **mesmo banco do app da Lavínia** (Supabase, projeto `lavinia`; endereço e chave pública em `js/cloud-config.js`).
-Funciona igual ao da Lavínia: cada peça posta na folha (ou salva) ganha uma cópia na nuvem por **30 dias**, e a seção **Guardados na nuvem** traz de volta.
+Cada peça posta na folha (ou salva) ganha uma cópia na nuvem, e a seção **Guardados na nuvem** traz de volta.
 
-- Os dados **não se misturam**: cada app guarda a conta anônima no próprio armazenamento do aparelho, então a Central tem a sua conta e as regras do banco só deixam cada conta ver os próprios cards.
-- A limpeza diária (`limpar-cards`, do repositório da Lavínia) também apaga as cópias da Central com mais de 30 dias.
+- **Sem prazo:** as peças da Central ficam marcadas com `app = 'elane'` e a limpeza diária de 30 dias não mexe nelas. Só saem da nuvem quando a Elane **apaga de vez no fichário** (o "Desfazer" logo depois devolve). Tirar da folha não apaga da nuvem.
+- Sem internet, o envio e a exclusão ficam numa fila e acontecem quando a internet voltar.
+- Os dados **não se misturam** com os da Lavínia: cada app guarda a conta anônima no próprio armazenamento do aparelho, e as regras do banco só deixam cada conta ver os próprios cards.
 - A **Minha turma** continua só no app da Lavínia (o banco dela não aceita bottons, capas nem marcadores de 20 cm nos posts).
 - Para desligar a nuvem, deixe `url` vazio em `js/cloud-config.js`.
 
