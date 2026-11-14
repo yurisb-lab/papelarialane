@@ -1,6 +1,6 @@
 // Guarda a Central no aparelho para abrir mesmo sem internet.
 // Ao mudar qualquer arquivo do app, aumente VERSION para os aparelhos baixarem a versão nova.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = `elane-${VERSION}`;
 const APP_FILES = [
   './',
@@ -45,6 +45,9 @@ const APP_FILES = [
   'fonts/bungee-latin.woff2',
   'fonts/caveat-latin.woff2',
   'fonts/dancing-script-latin.woff2',
+  'fonts/figtree-latin.woff2',
+  'fonts/fraunces-italic-latin.woff2',
+  'fonts/fraunces-latin.woff2',
   'fonts/fredoka-latin.woff2',
   'fonts/lobster-latin.woff2',
   'fonts/nunito-latin.woff2',
