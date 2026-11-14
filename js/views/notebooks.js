@@ -76,7 +76,7 @@ export async function mount(root) {
         <div class="box">
           <h2 class="box__title">Prévia <span class="chip" data-preview-name></span></h2>
           <div class="nb-preview" data-preview></div>
-          <p class="hint">Frente e verso de uma folha. Os furinhos cinza só aparecem aqui, para mostrar o lado do wire-o.</p>
+          <p class="hint">Frente e verso de uma folha. O lado do wire-o é o da margem maior.</p>
           <button type="button" class="btn btn--primary btn--wide" data-act="pdf">${icon('printer', { size: 22 })}<span data-pdf-label>Gerar PDF do miolo</span></button>
           <div class="ready" data-ready hidden>
             <p class="ready__title">${icon('heart', { size: 18, fill: true })} Miolo pronto!</p>
