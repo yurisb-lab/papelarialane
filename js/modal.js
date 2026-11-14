@@ -4,7 +4,7 @@ import { icon } from './icons.js';
 
 let open = null;
 
-export function openModal({ title, html, onMount, className = '' }) {
+export function openModal({ title, html, onMount, onClose, className = '' }) {
   if (open) open.close();
   const before = document.activeElement;
   const el = document.createElement('div');
@@ -32,6 +32,11 @@ export function openModal({ title, html, onMount, className = '' }) {
     el.classList.remove('is-in');
     setTimeout(() => el.remove(), 200);
     if (open && open.el === el) open = null;
+    if (onClose) {
+      try {
+        onClose();
+      } catch (_) {}
+    }
     if (before && before.focus) before.focus({ preventScroll: true });
   }
   el.addEventListener('click', (e) => {
