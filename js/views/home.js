@@ -13,13 +13,14 @@ export const title = '';
 const MAIN = {
   route: 'photo-cards',
   name: 'Criar',
-  text: 'Bottons (32, 44 e 58 mm), marcadores, cartões e capas A5. Enfeite com fotos, textos, adesivos e molduras, e mande tudo para a mesma folha A4, pronta para imprimir ou cortar na Silhouette.',
+  text: 'Bottons (32, 44 e 58 mm), photo cards (5,3 × 8,5 cm), marcadores, cartões e capas A5. Enfeite com fotos, textos, adesivos e molduras, e mande tudo para a mesma folha A4, pronta para imprimir ou cortar na Silhouette.',
 };
 
 const QUICK = [
   { f: 'btn32', label: 'Botton 32' },
   { f: 'btn44', label: 'Botton 44' },
   { f: 'btn58', label: 'Botton 58' },
+  { f: 'card', label: 'Photo card' },
   { f: 'bookmark', label: 'Marcador 5×15' },
   { f: 'bookmark20', label: 'Marcador 5×20' },
   { f: 'cover', label: 'Capa A5' },
@@ -72,6 +73,7 @@ function art(kind) {
   if (kind === 'buttons') {
     return `
     <div class="tile-art" aria-hidden="true">
+      <span class="mini-card mini-card--home"><span class="mini-card__sky"></span></span>
       <span class="art-btn art-btn--a">${icon('heart', { size: 30, fill: true })}</span>
       <span class="art-btn art-btn--b">${icon('star', { size: 26, fill: true })}</span>
       <span class="art-bookmark"><i></i></span>
