@@ -3,6 +3,9 @@ Fontes usadas no Aplicativo da Lavínia (só o conjunto "latin", baixado do Goog
 Fredoka, Nunito, Pacifico, Caveat, Lobster, Permanent Marker, Rubik Bubbles,
 Dancing Script e Bungee.
 
+Fontes da interface da Central (variáveis, conjunto "latin", do Fontsource):
+Fraunces (normal e itálico) e Figtree.
+
 Todas são distribuídas sob a SIL Open Font License, versão 1.1
 (https://openfontlicense.org), que permite usar, guardar e distribuir as fontes
 junto com outros programas. Os direitos de cada fonte são dos seus autores.

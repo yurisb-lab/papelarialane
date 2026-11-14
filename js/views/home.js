@@ -60,9 +60,9 @@ const TOOLS = [
 
 function greeting() {
   const h = new Date().getHours();
-  if (h < 12) return 'Bom dia, Elane!';
-  if (h < 18) return 'Boa tarde, Elane!';
-  return 'Boa noite, Elane!';
+  if (h < 12) return 'Bom dia, <em>Elane</em>';
+  if (h < 18) return 'Boa tarde, <em>Elane</em>';
+  return 'Boa noite, <em>Elane</em>';
 }
 
 function art(kind) {
@@ -78,7 +78,7 @@ function art(kind) {
   if (kind === 'kit') {
     return `
     <div class="small-art" aria-hidden="true">
-      <span class="art-swatch"><i style="background:#b4532f"></i><i style="background:#e48b62"></i><i style="background:#e9b949"></i><i style="background:#3d6a55"></i><i style="background:#dde8df"></i></span>
+      <span class="art-swatch"><i style="background:#a5492b"></i><i style="background:#c9785a"></i><i style="background:#c39a45"></i><i style="background:#3b6551"></i><i style="background:#dfe7de"></i></span>
       <span class="art-btn art-btn--kit">${icon('heart', { size: 22, fill: true })}</span>
     </div>`;
   }
