@@ -157,6 +157,14 @@ export function renderLeafPreview(spec, type, side, pageNo, width = 300) {
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, c.width, c.height);
+  // margem do wire-o, só na prévia: furinhos
+  ctx.fillStyle = '#efe7e1';
+  const hx = side === 'front' ? 5 : A5.w - 5;
+  for (let y = 10; y < A5.h - 6; y += 8.47) {
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect((hx - 2) * k, y * k, 4 * k, 4 * k, 0.8 * k) : ctx.rect((hx - 2) * k, y * k, 4 * k, 4 * k);
+    ctx.fill();
+  }
   drawLeafPage(canvasPainter(ctx, k), spec, type, side, pageNo);
   return c;
 }
