@@ -1,6 +1,6 @@
 // Guarda a Central no aparelho para abrir mesmo sem internet.
 // Ao mudar qualquer arquivo do app, aumente VERSION para os aparelhos baixarem a versão nova.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = `elane-${VERSION}`;
 const APP_FILES = [
   './',
@@ -25,6 +25,7 @@ const APP_FILES = [
   'js/library.js',
   'js/modal.js',
   'js/notebook.js',
+  'js/pdftools.js',
   'js/pdf.js',
   'js/records.js',
   'js/render.js',
@@ -37,11 +38,16 @@ const APP_FILES = [
   'js/views/binder.js',
   'js/views/home.js',
   'js/views/notebooks.js',
+  'js/views/pdf.js',
   'js/views/pc-panels.js',
   'js/views/photocards.js',
   'js/views/stickers.js',
   'js/views/themes.js',
   'vendor/jspdf.umd.min.js',
+  'vendor/pdf-lib.min.js',
+  'vendor/pdf.min.js',
+  'vendor/pdf.worker.min.js',
+  'vendor/jszip.min.js',
   'fonts/bungee-latin.woff2',
   'fonts/caveat-latin.woff2',
   'fonts/dancing-script-latin.woff2',

@@ -1,5 +1,5 @@
 // Tela inicial da Central: a criação principal em destaque, atalhos para começar direto
-// e um mural com as outras ferramentas (temas e kits, cadernos, adesivos e fichário).
+// e um mural com as outras ferramentas (temas e kits, cadernos, adesivos, fichário e PDF).
 
 import { db } from '../db.js';
 import { icon } from '../icons.js';
@@ -50,6 +50,12 @@ const TOOLS = [
     art: 'binder',
     meta: 'binder',
   },
+  {
+    route: 'pdf',
+    name: 'PDF',
+    text: 'Extraia páginas, transforme PDF em imagem (e imagem em PDF), junte, divida, gire e comprima. Nada sai do aparelho.',
+    art: 'pdf',
+  },
 ];
 
 function greeting() {
@@ -88,6 +94,14 @@ function art(kind) {
       <span class="art-sticker art-sticker--a">${icon('heart', { size: 30, fill: true })}</span>
       <span class="art-sticker art-sticker--b">${icon('star', { size: 26, fill: true })}</span>
       <span class="art-sticker art-sticker--c">${icon('sparkle', { size: 22, fill: true })}</span>
+    </div>`;
+  }
+  if (kind === 'pdf') {
+    return `
+    <div class="small-art" aria-hidden="true">
+      <span class="art-pdf art-pdf--a"></span>
+      <span class="art-pdf art-pdf--c"></span>
+      <span class="art-pdf art-pdf--b"><i></i><i></i><i></i><i></i><i></i></span>
     </div>`;
   }
   return `

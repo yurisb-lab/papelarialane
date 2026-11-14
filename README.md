@@ -71,6 +71,22 @@ Adesivos ainda não têm linha de corte no kit: no Studio, use **Traçar** neles
   - As linhas são vetor, então o PDF fica leve.
 - A capa é feita no editor (formato **Capa A5** ou **Capa dura A5**).
 
+## PDF
+
+Ferramentas de PDF trazidas do [Conversor de Tudo](https://github.com/yurisb-lab/conversordetudo) (as mais usadas). Tudo roda no aparelho: nenhum arquivo vai para a internet, e funciona sem internet depois da primeira visita.
+
+- **Extrair páginas:** toque nas miniaturas (ou escreva `1-3, 5, 8-`) e saia só com elas, num PDF ou uma por arquivo. No computador, Shift escolhe várias de uma vez.
+- **PDF em imagem:** PNG ou JPG em tela, boa ou impressão (300 dpi). Cada imagem pode ir direto para **Meus adesivos** e virar arte no editor.
+- **Imagem em PDF:** A4, A5, Carta ou igual à imagem; em pé, deitada ou automática; com ou sem margem.
+- **Juntar PDFs:** PDFs e imagens na ordem escolhida, com opção de página em branco para frente e verso.
+- **Dividir PDF:** cada página, a cada N páginas, ao meio ou por intervalos.
+- **Apagar páginas** e **Girar páginas** (todas ou só as escolhidas).
+- **Comprimir:** leve, recomendada, forte (as páginas viram imagem) ou sem perder nada; se não ficar menor, devolve o original.
+
+Vários arquivos de uma vez saem num `.zip`. O botão **Usar em outra ferramenta** abre o resultado direto na próxima ferramenta (ex.: juntar e depois comprimir).
+
+Bibliotecas em `vendor/` (carregadas só quando a tela de PDF é usada): pdf-lib 2.11.1 (@cantoo), pdf.js 3.11.174 e JSZip 3.10.1.
+
 ## Como usar
 
 É um site estático: não precisa instalar nada nem compilar.
@@ -105,6 +121,8 @@ js/views/themes.js    tela Temas e kits
 js/views/notebooks.js tela Cadernos A5
 js/views/home.js      início da Central
 js/templates.js       modelos de botton e de capa
+js/pdftools.js        ferramentas de PDF (extrair, dividir, juntar, girar, comprimir, PDF ↔ imagem)
+js/views/pdf.js       tela PDF
 ```
 
 **Ao publicar mudanças:** aumente `VERSION` em `sw.js` para os aparelhos baixarem a versão nova.
