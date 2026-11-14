@@ -132,8 +132,10 @@ function template() {
             ${icon('photo', { size: 34 })}
             <span>Escolher foto</span>
           </button>
-          <p class="stage__or">${isTouch ? 'ou cole uma imagem que você copiou' : 'ou arraste uma imagem para cá, ou cole com Ctrl+V'}</p>
-          <button type="button" class="link-btn" data-act="paste">${icon('upload', { size: 18 })} Colar imagem</button>
+          <div class="stage__more">
+            <p class="stage__or">${isTouch ? 'ou cole uma imagem que você copiou' : 'ou arraste uma imagem para cá, ou cole com Ctrl+V'}</p>
+            <button type="button" class="link-btn" data-act="paste">${icon('upload', { size: 18 })} Colar imagem</button>
+          </div>
         </div>
         <div class="stage__drop" aria-hidden="true"><span>${icon('heart', { size: 28, fill: true })} Solte a imagem aqui</span></div>
         <span class="stage__size" data-size>${sizeText('portrait')}</span>
@@ -358,6 +360,8 @@ export async function mount(root) {
     $('[data-act="series"]').disabled = lock;
     if ($('[data-act="share-group"]')) $('[data-act="share-group"]').disabled = lock || isEmpty(d);
     $('[data-empty]').hidden = lock || draw.active || sideName !== 'front' || s.layers.length > 0 || !editor.cells().length;
+    // Botton: o círculo é pequeno, então o aviso fica só com o botão, bem no meio (o "Colar" está no painel de baixo).
+    $('[data-stage]').classList.toggle('is-circle', !!f.circle);
     $('[data-bg-badge]').hidden = lock || !isBgPhoto(L);
     $$('[data-tab]').forEach((b) => {
       b.disabled = lock;
@@ -2439,8 +2443,19 @@ export async function mount(root) {
     if (tab === 'modelos') fillPreviews();
   });
 
+  // Folha do lado: quando há mais coisa para baixo, aparece um esmaecido no pé do painel.
+  const sheetEl = $('[data-sheet]');
+  const syncSheetMore = () => {
+    sheetEl.classList.toggle('has-more', sheetEl.scrollHeight - sheetEl.scrollTop - sheetEl.clientHeight > 8);
+  };
+  sheetEl.addEventListener('scroll', syncSheetMore, { passive: true });
+  const sheetRO = new ResizeObserver(syncSheetMore);
+  sheetRO.observe(sheetEl);
+  for (const child of sheetEl.children) sheetRO.observe(child);
+
   return () => {
     alive = false;
+    sheetRO.disconnect();
     stopCloud();
     stopLib();
     revokeUrls(library);
