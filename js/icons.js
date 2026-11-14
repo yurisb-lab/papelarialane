@@ -54,6 +54,8 @@ const P = {
   poster: '<rect x="5" y="3" width="14" height="18" rx="1.5"/><rect x="8" y="6" width="8" height="6" rx="1"/><path d="M8 15h8M8 18h5"/>',
   starOn: '<path d="M12 3.5l2.5 5.3 5.8.7-4.3 4 1.1 5.7L12 16.4l-5.1 2.8 1.1-5.7-4.3-4 5.8-.7z" fill="currentColor"/>',
   users: '<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19.5a5.5 5.5 0 0 1 11 0"/><circle cx="16.5" cy="9.5" r="2.6"/><path d="M15.8 14.3a4.6 4.6 0 0 1 4.7 5.2"/>',
+  compress: '<path d="M12 3v6"/><path d="m9 6.5 3 3 3-3"/><path d="M12 21v-6"/><path d="m9 17.5 3-3 3 3"/><path d="M4 12h16"/>',
+  merge: '<rect x="3.5" y="3.5" width="7" height="9" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="9" rx="1.5"/><path d="M7 12.5v2a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2"/><path d="M12 16.5V21"/>',
   palette: '<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 2-1 1.6-2.1-.5-1.3.2-2.4 1.6-2.4H17a3.5 3.5 0 0 0 3.5-3.5c0-5-3.8-9-8.5-9z"/><circle cx="8" cy="10" r="1.1"/><circle cx="12" cy="7.5" r="1.1"/><circle cx="16" cy="10" r="1.1"/>',
 };
 

@@ -8,6 +8,7 @@ import * as stickers from './views/stickers.js';
 import * as binder from './views/binder.js';
 import * as themes from './views/themes.js';
 import * as notebooks from './views/notebooks.js';
+import * as pdfview from './views/pdf.js';
 
 const ROUTES = {
   '': home,
@@ -16,6 +17,7 @@ const ROUTES = {
   fichario: binder,
   temas: themes,
   cadernos: notebooks,
+  pdf: pdfview,
 };
 
 const viewEl = document.getElementById('view');
