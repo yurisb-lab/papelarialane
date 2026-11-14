@@ -108,6 +108,16 @@ Cada peça posta na folha (ou salva) ganha uma cópia na nuvem, e a seção **Gu
 - A **Minha turma** continua só no app da Lavínia (o banco dela não aceita bottons, capas nem marcadores de 20 cm nos posts).
 - Para desligar a nuvem, deixe `url` vazio em `js/cloud-config.js`.
 
+## Cópia de segurança
+
+Tudo fica guardado no aparelho (IndexedDB). Se o navegador apagar os dados ou o tablet for trocado, só uma cópia salva tudo: a conta da nuvem também fica no aparelho, então num tablet novo ela não volta sozinha.
+
+- **Início → Cópia de segurança** (`#/copia`) → **Fazer cópia de tudo**: sai um `central-elane-copia-AAAA-MM-DD.zip` com as criações do fichário (com as fotos), meus adesivos, temas, pastas e os ajustes do caderno e da Silhouette. No iPad, **Salvar em Arquivos ou no Drive**; no computador, vai para Downloads.
+- **Trazer de volta:** abra o `.zip` na mesma tela. Nada do que já está no aparelho é apagado ou trocado: só entra o que falta (pelo código de cada peça). As criações que entram vão para a nuvem da conta deste aparelho.
+- Ficam de fora: a conta da nuvem, a fila de envio e o rascunho do editor (são de cada aparelho).
+- O início lembra de guardar uma cópia quando nunca foi feita ou quando a última tem mais de 14 dias.
+- A tela mostra quanto a Central ocupa e se o navegador prometeu não apagar os dados (com um botão para pedir).
+
 ## Código (o que é novo em relação ao app da Lavínia)
 
 ```
@@ -123,6 +133,8 @@ js/views/home.js      início da Central
 js/templates.js       modelos de botton e de capa
 js/pdftools.js        ferramentas de PDF (extrair, dividir, juntar, girar, comprimir, PDF ↔ imagem)
 js/views/pdf.js       tela PDF
+js/backup.js          cópia de segurança (.zip com tudo) e volta da cópia
+js/views/backup.js    tela Cópia de segurança
 ```
 
 **Ao publicar mudanças:** aumente `VERSION` em `sw.js` para os aparelhos baixarem a versão nova.

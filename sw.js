@@ -1,6 +1,6 @@
 // Guarda a Central no aparelho para abrir mesmo sem internet.
 // Ao mudar qualquer arquivo do app, aumente VERSION para os aparelhos baixarem a versão nova.
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE = `elane-${VERSION}`;
 const APP_FILES = [
   './',
@@ -8,6 +8,7 @@ const APP_FILES = [
   'css/app.css',
   'css/fonts.css',
   'js/app.js',
+  'js/backup.js',
   'js/bg-remover.js',
   'js/bg-worker.js',
   'js/card.js',
@@ -35,6 +36,7 @@ const APP_FILES = [
   'js/templates.js',
   'js/themes.js',
   'js/toast.js',
+  'js/views/backup.js',
   'js/views/binder.js',
   'js/views/home.js',
   'js/views/notebooks.js',

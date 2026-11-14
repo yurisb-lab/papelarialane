@@ -4,6 +4,9 @@
 import { db } from '../db.js';
 import { icon } from '../icons.js';
 import { listThemes } from '../themes.js';
+import { lastBackup, dateText, countLocal } from '../backup.js';
+
+const REMIND_DAYS = 14; // depois disso, o início lembra de guardar uma cópia
 
 export const title = '';
 
@@ -146,6 +149,11 @@ export async function mount(el) {
             </a>`
           ).join('')}
         </div>
+        <a class="home-backup" href="#/copia" data-backup>
+          <span class="home-backup__icon">${icon('download', { size: 22 })}</span>
+          <span class="home-backup__text"><strong>Cópia de segurança</strong> <span data-backup-text>Guarde um arquivo com tudo, para não perder nada.</span></span>
+          <span class="home-backup__go">Abrir</span>
+        </a>
       </div>
     </section>`;
 
@@ -164,5 +172,23 @@ export async function mount(el) {
     if (st) setMeta('stickers', st === 1 ? '1 adesivo' : `${st} adesivos`);
     const th = (await listThemes()).length;
     if (th) setMeta('themes', th === 1 ? '1 tema guardado' : `${th} temas guardados`);
+
+    // Lembrete da cópia de segurança: nunca guardou, ou faz tempo.
+    const last = await lastBackup();
+    const hasStuff = (await countLocal()).total > 0; // os 4 temas prontos não contam
+    const days = last ? Math.floor((Date.now() - last.at) / 86400000) : null;
+    const box = el.querySelector('[data-backup]');
+    const txt = el.querySelector('[data-backup-text]');
+    if (box && txt && hasStuff) {
+      if (!last) {
+        txt.textContent = 'Você ainda não guardou uma cópia de tudo. Se o navegador apagar os dados, tudo se perde.';
+        box.classList.add('is-due');
+      } else if (days >= REMIND_DAYS) {
+        txt.textContent = `A última cópia foi em ${dateText(last.at)}, faz ${days} dias. Que tal guardar uma nova?`;
+        box.classList.add('is-due');
+      } else {
+        txt.textContent = `Última cópia em ${dateText(last.at)}.`;
+      }
+    }
   } catch (_) {}
 }

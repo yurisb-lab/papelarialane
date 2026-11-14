@@ -9,6 +9,7 @@ import * as binder from './views/binder.js';
 import * as themes from './views/themes.js';
 import * as notebooks from './views/notebooks.js';
 import * as pdfview from './views/pdf.js';
+import * as backup from './views/backup.js';
 
 const ROUTES = {
   '': home,
@@ -18,6 +19,7 @@ const ROUTES = {
   temas: themes,
   cadernos: notebooks,
   pdf: pdfview,
+  copia: backup,
 };
 
 const viewEl = document.getElementById('view');

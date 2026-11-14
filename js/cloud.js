@@ -222,6 +222,16 @@ export async function queueCard(id) {
   syncCloud();
 }
 
+// Várias de uma vez (ex.: ao trazer uma cópia de segurança de volta).
+export async function queueCards(ids) {
+  if (!cloudEnabled || !ids.length) return;
+  const q = await getQueue();
+  const now = Date.now();
+  ids.forEach((id) => (q[id] = now));
+  await db.setMeta('cloudQueue', q).catch(() => {});
+  syncCloud();
+}
+
 let syncing = null;
 let again = false;
 let retryTimer = 0;
