@@ -2,6 +2,7 @@
 // Para criar uma tela nova: crie js/views/minha-tela.js com mount(el) e registre em ROUTES.
 
 import { askPersistentStorage } from './db.js';
+import { initThemePicker } from './theme.js';
 import * as home from './views/home.js';
 import * as photocards from './views/photocards.js';
 import * as stickers from './views/stickers.js';
@@ -62,6 +63,7 @@ async function render() {
 }
 
 window.addEventListener('hashchange', render);
+initThemePicker();
 render();
 askPersistentStorage();
 
