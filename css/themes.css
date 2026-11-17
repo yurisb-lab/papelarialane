@@ -1,0 +1,429 @@
+/* Temas de cores: o mesmo arquivo nos apps da Elane, da Lavínia e do Kalel.
+   Cada app escolhe o tema padrão no <html data-theme="...">; o seletor do topo troca e guarda a escolha.
+   Para criar um tema novo: copie um bloco, troque as cores e acrescente o tema na lista de js/theme.js.
+   Os nomes das variáveis vêm do app da Lavínia: --berry é a cor forte, --pink a cor clara e --lilac a cor de apoio.
+   As variáveis *-rgb guardam só os canais, para usar com transparência: rgb(var(--ink-rgb) / 0.2). */
+
+
+/* Ateliê: terracota e sálvia */
+:root[data-theme='atelie'] {
+  --paper: #f7f2eb;
+  --paper-2: #f1e9de;
+  --paper-glow: #fdfaf5;
+  --grid: rgba(120, 90, 70, 0.07);
+  --ink: #2a2321;
+  --ink-2: #6a5c55;
+  --ink-rgb: 47 42 46;
+  --berry: #a5492b;
+  --berry-dark: #7c3519;
+  --berry-rgb: 165 73 43;
+  --berry-dark-rgb: 124 53 25;
+  --shade-rgb: 70 45 30;
+  --alt-shade-rgb: 40 80 60;
+  --pink: #c9785a;
+  --pink-soft: #f4e8de;
+  --pink-line: #e7dacd;
+  --pink-50: #fffaf6;
+  --pink-200: #f2c7b1;
+  --pink-400: #d9653b;
+  --pink-dash: #dcc0ae;
+  --line: #e5d9cc;
+  --line-strong: #d6c5b5;
+  --lilac: #e6ece4;
+  --lilac-ink: #3b6551;
+  --lilac-ink-rgb: 59 101 81;
+  --lilac-ink-dark: #2f5644;
+  --lilac-50: #f1f6f2;
+  --lilac-100: #e3ede5;
+  --lilac-200: #cfe0d4;
+  --lilac-300: #9dbfa8;
+  --lilac-muted: #bccbbf;
+  --hero-a: #fbefe6;
+  --hero-b: #f4dccd;
+  --art-a: #a3c2ad;
+  --art-b: #eaa684;
+  --art-c: #e48b62;
+  --topbar-bg: rgba(247, 242, 235, 0.94);
+  --chip-glass: rgba(248, 226, 213, 0.82);
+  --checker: #f1e6dc;
+  --selection-bg: #ecd2c3;
+}
+
+/* Rosa: framboesa e lilás */
+:root[data-theme='rosa'] {
+  --paper: #fff6ef;
+  --paper-2: #ffefeb;
+  --paper-glow: #fffbf9;
+  --grid: rgba(226, 112, 156, 0.12);
+  --ink: #43203a;
+  --ink-2: #6e4560;
+  --ink-rgb: 67 32 58;
+  --berry: #c92f6c;
+  --berry-dark: #a3215a;
+  --berry-rgb: 201 47 108;
+  --berry-dark-rgb: 163 33 90;
+  --shade-rgb: 122 46 84;
+  --alt-shade-rgb: 60 30 110;
+  --pink: #ff7aa8;
+  --pink-soft: #ffdde9;
+  --pink-line: #f3c6d9;
+  --pink-50: #fff9fc;
+  --pink-200: #ffc8dc;
+  --pink-400: #ff5c93;
+  --pink-dash: #e4b7cc;
+  --line: #eee3df;
+  --line-strong: #e1d4d2;
+  --lilac: #e6dcff;
+  --lilac-ink: #5b3f9e;
+  --lilac-ink-rgb: 91 63 158;
+  --lilac-ink-dark: #4a3478;
+  --lilac-50: #f6f2ff;
+  --lilac-100: #e9e1ff;
+  --lilac-200: #d9cbff;
+  --lilac-300: #b79cff;
+  --lilac-muted: #c4b4d8;
+  --hero-a: #ffe3ef;
+  --hero-b: #ffd2e4;
+  --art-a: #b9a3f5;
+  --art-b: #ff9cc2;
+  --art-c: #ff7aa8;
+  --topbar-bg: rgba(255, 238, 245, 0.92);
+  --chip-glass: rgba(255, 221, 233, 0.82);
+  --checker: #f6e6ee;
+  --selection-bg: #ffc8dc;
+}
+
+/* Azul: azul e laranja */
+:root[data-theme='azul'] {
+  --paper: #f2f7ff;
+  --paper-2: #ebf3ff;
+  --paper-glow: #fafcff;
+  --grid: rgba(112, 165, 226, 0.12);
+  --ink: #203043;
+  --ink-2: #45586e;
+  --ink-rgb: 32 48 67;
+  --berry: #2a6bb8;
+  --berry-dark: #215ea3;
+  --berry-rgb: 47 119 201;
+  --berry-dark-rgb: 33 94 163;
+  --shade-rgb: 46 81 122;
+  --alt-shade-rgb: 110 62 30;
+  --pink: #7ab8ff;
+  --pink-soft: #ddedff;
+  --pink-line: #c6dbf3;
+  --pink-50: #f9fcff;
+  --pink-200: #c8e2ff;
+  --pink-400: #5ca8ff;
+  --pink-dash: #b7cce4;
+  --line: #dfe5ee;
+  --line-strong: #d0d7e1;
+  --lilac: #ffeadc;
+  --lilac-ink: #c2410c;
+  --lilac-ink-rgb: 194 65 12;
+  --lilac-ink-dark: #9a3412;
+  --lilac-50: #fff7f2;
+  --lilac-100: #ffede1;
+  --lilac-200: #ffe0cb;
+  --lilac-300: #ffc49c;
+  --lilac-muted: #d8c2b4;
+  --hero-a: #e3f0ff;
+  --hero-b: #d2e7ff;
+  --art-a: #f5c4a3;
+  --art-b: #9ccaff;
+  --art-c: #7ab8ff;
+  --topbar-bg: rgba(238, 246, 255, 0.92);
+  --chip-glass: rgba(221, 237, 255, 0.82);
+  --checker: #e6edf6;
+  --selection-bg: #c8e2ff;
+}
+
+/* Lilás: violeta e menta */
+:root[data-theme='lilas'] {
+  --paper: #f8f5ff;
+  --paper-2: #f3efff;
+  --paper-glow: #fcfbff;
+  --grid: rgba(169, 139, 255, 0.12);
+  --ink: #2e2348;
+  --ink-2: #5c5370;
+  --ink-rgb: 46 35 72;
+  --berry: #6d3fc0;
+  --berry-dark: #59349d;
+  --berry-rgb: 109 63 192;
+  --berry-dark-rgb: 89 52 157;
+  --shade-rgb: 74 48 126;
+  --alt-shade-rgb: 19 73 55;
+  --pink: #a98bff;
+  --pink-soft: #eae2ff;
+  --pink-line: #d7ccf8;
+  --pink-50: #fbf9ff;
+  --pink-200: #dbceff;
+  --pink-400: #9876ed;
+  --pink-dash: #c9beea;
+  --line: #e6e2ef;
+  --line-strong: #d8d3e2;
+  --lilac: #d6f3ea;
+  --lilac-ink: #1f7a5c;
+  --lilac-ink-rgb: 31 122 92;
+  --lilac-ink-dark: #19624a;
+  --lilac-50: #edfaf6;
+  --lilac-100: #def5ee;
+  --lilac-200: #c4e7dc;
+  --lilac-300: #9bccbd;
+  --lilac-muted: #bbd0cf;
+  --hero-a: #eee8ff;
+  --hero-b: #e3daff;
+  --art-a: #a3d1c2;
+  --art-b: #c3aeff;
+  --art-c: #a98bff;
+  --topbar-bg: rgba(243, 239, 255, 0.92);
+  --chip-glass: rgba(234, 226, 255, 0.82);
+  --checker: #f0eaff;
+  --selection-bg: #dbceff;
+}
+
+/* Menta: verde e amarelo */
+:root[data-theme='menta'] {
+  --paper: #f2fbf6;
+  --paper-2: #e9f8f0;
+  --paper-glow: #fafdfb;
+  --grid: rgba(92, 196, 154, 0.12);
+  --ink: #1d3a30;
+  --ink-2: #4f655e;
+  --ink-rgb: 29 58 48;
+  --berry: #1f7a5c;
+  --berry-dark: #19644b;
+  --berry-rgb: 31 122 92;
+  --berry-dark-rgb: 25 100 75;
+  --shade-rgb: 30 87 68;
+  --alt-shade-rgb: 97 55 4;
+  --pink: #5cc49a;
+  --pink-soft: #d6f0e6;
+  --pink-line: #bae2d2;
+  --pink-50: #f7fcfa;
+  --pink-200: #bbe6d5;
+  --pink-400: #4baf89;
+  --pink-dash: #add5c5;
+  --line: #dfeae4;
+  --line-strong: #d0dcd6;
+  --lilac: #fff0c2;
+  --lilac-ink: #a15c07;
+  --lilac-ink-rgb: 161 92 7;
+  --lilac-ink-dark: #814a06;
+  --lilac-50: #fff8e4;
+  --lilac-100: #fff3ce;
+  --lilac-200: #f6e1af;
+  --lilac-300: #e1c186;
+  --lilac-muted: #d8d1ac;
+  --hero-a: #def3eb;
+  --hero-b: #cbecdf;
+  --art-a: #e5c78e;
+  --art-b: #8dd6b8;
+  --art-c: #5cc49a;
+  --topbar-bg: rgba(232, 247, 241, 0.92);
+  --chip-glass: rgba(214, 240, 230, 0.82);
+  --checker: #e3f6ed;
+  --selection-bg: #bbe6d5;
+}
+
+/* Coral: laranja e rosa */
+:root[data-theme='coral'] {
+  --paper: #fff7f0;
+  --paper-2: #fff1e7;
+  --paper-glow: #fffcf9;
+  --grid: rgba(255, 154, 92, 0.12);
+  --ink: #3d2418;
+  --ink-2: #68544b;
+  --ink-rgb: 61 36 24;
+  --berry: #c2410c;
+  --berry-dark: #9f350a;
+  --berry-rgb: 194 65 12;
+  --berry-dark-rgb: 159 53 10;
+  --shade-rgb: 121 49 19;
+  --alt-shade-rgb: 114 14 56;
+  --pink: #ff9a5c;
+  --pink-soft: #ffe6d6;
+  --pink-line: #f7d2ba;
+  --pink-50: #fffaf7;
+  --pink-200: #ffd5bb;
+  --pink-400: #ee8146;
+  --pink-dash: #e8c4ad;
+  --line: #eee4dd;
+  --line-strong: #e0d5cd;
+  --lilac: #ffe1ec;
+  --lilac-ink: #be185d;
+  --lilac-ink-rgb: 190 24 93;
+  --lilac-ink-dark: #98134a;
+  --lilac-50: #fff2f6;
+  --lilac-100: #ffe7f0;
+  --lilac-200: #f8cdde;
+  --lilac-300: #eaa1be;
+  --lilac-muted: #dec2c9;
+  --hero-a: #ffebde;
+  --hero-b: #ffdfcb;
+  --art-a: #eda9c4;
+  --art-b: #ffb88d;
+  --art-c: #ff9a5c;
+  --topbar-bg: rgba(255, 241, 232, 0.92);
+  --chip-glass: rgba(255, 230, 214, 0.82);
+  --checker: #ffeee1;
+  --selection-bg: #ffd5bb;
+}
+
+/* ---------- Seletor de tema (botão Cores, no topo) ---------- */
+
+.topbar__actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.topbar-btn[aria-expanded='true'] {
+  background: var(--pink-soft);
+}
+
+.theme-pop {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  width: min(360px, calc(100vw - 32px));
+  padding: var(--s4);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--pink-line), var(--shadow-2);
+  animation: theme-pop-in 0.18s var(--ease-out);
+}
+
+@keyframes theme-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.theme-pop__title {
+  margin: 0 0 var(--s1);
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.theme-pop__hint {
+  margin: 0 0 var(--s3);
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.theme-pop__list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.theme-opt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: 60px;
+  padding: var(--s2) var(--s3);
+  border-radius: 14px;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1.5px var(--pink-line);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.theme-opt:hover {
+  background: var(--pink-50);
+}
+
+.theme-opt.is-on {
+  background: var(--pink-soft);
+  box-shadow: inset 0 0 0 2.5px var(--berry);
+}
+
+.theme-opt input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.theme-opt:has(input:focus-visible) {
+  outline: 2px solid var(--berry);
+  outline-offset: 2px;
+}
+
+.theme-dot {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: conic-gradient(var(--sw-berry) 0 50%, var(--sw-pink) 50% 75%, var(--sw-alt) 75%);
+  box-shadow: inset 0 0 0 4px var(--sw-paper), 0 0 0 1px rgb(var(--ink-rgb) / 0.14);
+}
+
+.theme-opt__text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.theme-opt__name {
+  font-weight: 700;
+}
+
+.theme-opt__note {
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* No celular, os botões do topo mostram só o ícone. */
+@media (max-width: 640px) {
+  .topbar-btn__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  .home-link,
+  .topbar-btn {
+    justify-content: center;
+    min-width: 46px;
+    padding: 0 var(--s2);
+  }
+}
+
+@media (max-width: 380px) {
+  .theme-pop__list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-pop {
+    animation: none;
+  }
+}

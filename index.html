@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="atelie" data-theme-default="atelie" data-theme-key="elane-tema">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -15,19 +15,27 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="stylesheet" href="css/fonts.css">
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/themes.css">
+  <script>try{var t=localStorage.getItem('elane-tema');if(/^(atelie|rosa|azul|lilas|menta|coral)$/.test(t||''))document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body>
   <header class="topbar">
     <a class="brand" href="#/" aria-label="Central de Criação Elane, ir para o início">
       <span class="brand__badge" aria-hidden="true">
-        <svg viewBox="0 0 48 48" width="44" height="44"><circle cx="24" cy="24" r="22.5" fill="#fffdf9" stroke="#a5492b" stroke-width="1.2"/><circle cx="24" cy="24" r="19" fill="none" stroke="#a5492b" stroke-width="0.6" stroke-dasharray="1.2 2.2"/><text x="24" y="31.5" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-style="italic" font-size="23" font-weight="400" fill="#a5492b">E</text></svg>
+        <svg viewBox="0 0 48 48" width="44" height="44"><circle cx="24" cy="24" r="22.5" fill="#fffdf9" stroke="#a5492b" style="fill:var(--surface);stroke:var(--berry)" stroke-width="1.2"/><circle cx="24" cy="24" r="19" fill="none" stroke="#a5492b" style="stroke:var(--berry)" stroke-width="0.6" stroke-dasharray="1.2 2.2"/><text x="24" y="31.5" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-style="italic" font-size="23" font-weight="400" fill="#a5492b" style="fill:var(--berry)">E</text></svg>
       </span>
       <span class="brand__text">Central de Criação <span class="brand__name">Elane</span></span>
     </a>
-    <a class="home-link" href="#/">
-      <svg class="ic" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9.5h11V10"/><path d="M10 19.5v-5h4v5"/></svg>
-      Início
-    </a>
+    <div class="topbar__actions">
+      <a class="home-link" href="#/">
+        <svg class="ic" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9.5h11V10"/><path d="M10 19.5v-5h4v5"/></svg>
+        <span class="topbar-btn__label">Início</span>
+      </a>
+      <button class="topbar-btn" id="theme-btn" type="button" aria-expanded="false" aria-haspopup="dialog" aria-controls="theme-pop" aria-label="Cores do aplicativo">
+        <svg class="ic" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 2-1 1.6-2.1-.5-1.3.2-2.4 1.6-2.4H17a3.5 3.5 0 0 0 3.5-3.5c0-5-3.8-9-8.5-9z"/><circle cx="8" cy="10" r="1.1" fill="currentColor"/><circle cx="12" cy="7.5" r="1.1" fill="currentColor"/><circle cx="16" cy="10" r="1.1" fill="currentColor"/></svg>
+        <span class="topbar-btn__label" aria-hidden="true">Cores</span>
+      </button>
+    </div>
   </header>
 
   <main id="view" class="view"></main>
