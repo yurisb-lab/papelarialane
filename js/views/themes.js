@@ -5,7 +5,7 @@ import { icon } from '../icons.js';
 import { toast } from '../toast.js';
 import { FORMATS, formatInfo } from '../card.js';
 import { renderThumb, PATTERNS } from '../render.js';
-import { FONTS, cssFont, loadFonts, ensureFonts } from '../fonts.js';
+import { FONTS, FONT_GROUPS, cssFont, loadFonts, ensureFonts } from '../fonts.js';
 import { importImageFile, blobToImage, releaseImage } from '../image.js';
 import { listStickers, stickerUrls, revokeUrls } from '../library.js';
 import { listThemes, saveTheme, deleteTheme, newTheme, kitDesign, makeKit, KIT_PRODUCTS } from '../themes.js';
@@ -15,6 +15,15 @@ export const title = 'Temas e kits';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 // a fonte vai dentro de style="…": as aspas duplas do nome da fonte viram simples
 const fontCss = (id, px) => cssFont(id, px).replace(/"/g, "'");
+
+// Letras separadas por grupo (Caligrafia, Pincel e caneta…).
+const fontChips = (which, current) =>
+  `<div class="font-groups">${FONT_GROUPS.map(
+    (g) =>
+      `<p class="font-groups__name">${g.name}</p><div class="chips">${FONTS.filter((f) => f.cat === g.id)
+        .map((f) => `<button type="button" class="font-chip" style="font:${fontCss(f.id, 18)}" data-ed-font="${which}" data-font-id="${f.id}" aria-pressed="${current === f.id}">${f.name}</button>`)
+        .join('')}</div>`
+  ).join('')}</div>`;
 const COLOR_NAMES = ['Principal', 'Destaque', 'Fundo', 'Texto', 'Extra'];
 
 export async function mount(root) {
@@ -135,11 +144,11 @@ export async function mount(root) {
       </div>
       <div class="field">
         <span class="field__label">Letra dos títulos</span>
-        <div class="chips">${FONTS.map((f) => `<button type="button" class="font-chip" style="font:${fontCss(f.id, 18)}" data-ed-font="title" data-font-id="${f.id}" aria-pressed="${draft.fontTitle === f.id}">${f.name}</button>`).join('')}</div>
+        ${fontChips('title', draft.fontTitle)}
       </div>
       <div class="field">
         <span class="field__label">Letra dos textos</span>
-        <div class="chips">${FONTS.map((f) => `<button type="button" class="font-chip" style="font:${fontCss(f.id, 18)}" data-ed-font="text" data-font-id="${f.id}" aria-pressed="${draft.fontText === f.id}">${f.name}</button>`).join('')}</div>
+        ${fontChips('text', draft.fontText)}
       </div>
       <div class="field">
         <span class="field__label">Estampa do fundo</span>

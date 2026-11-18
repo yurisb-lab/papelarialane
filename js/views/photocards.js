@@ -21,10 +21,12 @@ import {
   sideHasContent,
   uid,
 } from '../card.js';
-import { renderThumb, GRADIENTS, bgBaseColor } from '../render.js';
+import { renderThumb, GRADIENTS, bgBaseColor, layerBounds, textRunWidth } from '../render.js';
 import { processPhoto } from '../fx.js';
 import { stickerPreview, stickerInfo } from '../stickers.js';
-import { loadFonts, ensureFonts } from '../fonts.js';
+import { loadFonts, ensureFonts, FONT_PAIRS } from '../fonts.js';
+import { BRUSH_SIZES, isBrushTool, newStroke, extendStroke, paintPreview } from '../brush.js';
+import { qrFromPreset, QR_MAX } from '../qr.js';
 import { makeTemplate, templateInfo } from '../templates.js';
 import { createHistory } from '../history.js';
 import { db, newId } from '../db.js';
@@ -151,6 +153,7 @@ function template() {
         <div class="selbar__acts">
           <button type="button" class="sel-btn" data-act="layer-up" title="Trazer para a frente">${icon('front', { size: 20 })}<span>Para frente</span></button>
           <button type="button" class="sel-btn" data-act="layer-down" title="Mandar para trás">${icon('back', { size: 20 })}<span>Para trás</span></button>
+          <button type="button" class="sel-btn" data-act="piece" title="Transparência, prender, alinhar">${icon('layers', { size: 20 })}<span>Ajustes</span></button>
           <button type="button" class="sel-btn" data-act="dup" title="Duplicar">${icon('copy', { size: 20 })}<span>Duplicar</span></button>
           <button type="button" class="sel-btn sel-btn--danger" data-act="del" title="Apagar">${icon('trash', { size: 20 })}<span>Apagar</span></button>
         </div>
@@ -257,6 +260,12 @@ export async function mount(root) {
   let stickerPack = 'fofos';
   let library = []; // meus adesivos (com url para os botões)
   const draw = { active: false, pen: 'pen', color: '#b4532f', size: 'm', layerId: null };
+  let fontCat = null; // grupo aberto na escolha de letra (null = o da letra do texto)
+  let fontFavs = []; // letras favoritas
+  let fontRecent = []; // últimas letras usadas
+  const multi = { on: false, ids: [] }; // "escolher várias" na aba Camadas
+  let qrKind = 'link';
+  let qrDraft = '';
 
   const getImg = (key) => (key === BG_TEMP ? bg.result : (images.get(key) || {}).img || null);
 
@@ -272,6 +281,9 @@ export async function mount(root) {
     result: null,
     running: false,
     timer: 0,
+    tool: 'point', // point | color | erase | restore
+    brush: BRUSH_SIZES.def, // raio do pincel (px da tela)
+    stroke: null, // pincelada sendo feita
   };
 
   const editor = createEditor(canvas, {
@@ -291,7 +303,9 @@ export async function mount(root) {
       setTab('texto');
       focusText(true);
     },
-    onDelete: (l) => deleteLayer(l.id),
+    onDelete: (l) => deleteLayer(l.id, { whole: true }),
+    onBrush: (phase, pt) => bgBrush(phase, pt),
+    onPickCancel: () => syncChrome(),
   });
   history.reset(editor.snapshot());
 
@@ -379,7 +393,8 @@ export async function mount(root) {
     bar.hidden = !L || lock;
     if (L && !lock) {
       const photos = s.layers.filter((l) => l.type === 'photo' && !isBgPhoto(l)).length;
-      const lab = layerLabel(L, 0, photos);
+      const n = editor.groupOf(L).length;
+      const lab = n > 1 ? { ic: 'group', text: `Grupo (${n} peças)` } : layerLabel(L, 0, photos);
       const i = s.layers.indexOf(L);
       $('[data-sel-name]').innerHTML = `${lab.emoji ? `<span class="layer__emoji">${lab.emoji}</span>` : icon(lab.ic, { size: 20 })}<span></span>`;
       $('[data-sel-name] span:last-child').textContent = lab.text;
@@ -391,7 +406,10 @@ export async function mount(root) {
 
     const tapWord = isTouch ? 'Toque' : 'Clique';
     let hint = '';
-    if (draw.active) hint = `Desenhe em cima ${f.id === 'poster' ? 'do pôster' : 'do card'}. Toque em “Pronto” quando terminar.`;
+    if (editor.isPicking()) hint = `Conta-gotas: ${tapWord.toLowerCase()} no card, na cor que você quer pegar.${isTouch ? ' Arraste o dedo para ver a cor na bolinha.' : ''}`;
+    else if (lock && isBrushTool(bg.tool)) hint = bg.tool === 'erase' ? 'Passe o dedo na foto onde quer apagar.' : 'Passe o dedo onde apagou demais: a foto volta.';
+    else if (multi.on) hint = `${tapWord} nas peças (no card ou na lista) para marcar.`;
+    else if (draw.active) hint = `Desenhe em cima ${f.id === 'poster' ? 'do pôster' : 'do card'}. Toque em “Pronto” quando terminar.`;
     else if (!lock) {
       if (!L) hint = s.layers.length ? `${tapWord} em alguma coisa do card para mexer nela.` : '';
       else if (isBgPhoto(L))
@@ -400,6 +418,7 @@ export async function mount(root) {
         hint = isTouch
           ? 'Arraste com um dedo para mover a foto. Com dois dedos, abra para aumentar e gire para inclinar.'
           : 'Arraste para mover a foto. Use a rodinha do mouse para aumentar (com Shift, para girar).';
+      else if (L.locked) hint = 'Esta peça está presa no lugar. Para mexer, toque em Ajustes › Soltar.';
       else
         hint = `Arraste para mudar de lugar. A bolinha roxa gira e muda o tamanho.${L.type === 'text' ? ` ${tapWord} duas vezes para escrever.` : ''}`;
     }
@@ -430,6 +449,12 @@ export async function mount(root) {
 
   // ---------- abas e painéis ----------
   function setTab(t) {
+    if (t !== 'camadas' && multi.on) {
+      multi.on = false;
+      multi.ids = [];
+      editor.setMulti([]);
+    }
+    if (editor.isPicking()) editor.setPickMode(null);
     tab = t;
     syncChrome();
     renderPanel(true);
@@ -437,6 +462,14 @@ export async function mount(root) {
 
   function onSelectChange() {
     if (bg.active) return;
+    if (multi.on) {
+      const M = selected();
+      if (M) {
+        if (M.type !== 'photo') toggleMulti(M.id);
+        editor.select(null);
+      }
+      return;
+    }
     const L = selected();
     const sel = editor.getSelection();
     if (L) {
@@ -459,7 +492,15 @@ export async function mount(root) {
       design: editor.design,
       cellsCount: editor.cells().length,
       bgActive: bg.active,
-      bg: { tolerance: bg.tolerance, ops: bg.ops.length, hasAuto: bg.ops.some((o) => o.kind === 'edges'), running: bg.running },
+      bg: { tolerance: bg.tolerance, ops: bg.ops.length, hasAuto: bg.ops.some((o) => o.kind === 'edges'), running: bg.running, tool: bg.tool, brush: bg.brush },
+      fontCat,
+      fontFavs,
+      fontRecent,
+      multi: { on: multi.on, ids: multi.ids.slice() },
+      groupSize: L ? editor.groupOf(L).length : 0,
+      isCircle: !!formatInfo(editor.design.format).circle,
+      qrKind,
+      qrDraft,
       isTouch,
       zoomSlider: L && L.type === 'photo' ? zoomToSlider(editor.getZoom(L)) : 0,
       unit: editor.unit(),
@@ -471,8 +512,28 @@ export async function mount(root) {
     };
   }
 
+  // Dedo apertando um botão do painel: espera soltar para refazer o painel
+  // (senão o toque se perde, por exemplo ao sair do campo de texto direto para uma letra).
+  let panelHold = false;
+  let panelDirty = false;
+  panel.addEventListener('pointerdown', () => (panelHold = true));
+  const releasePanel = () =>
+    setTimeout(() => {
+      panelHold = false;
+      if (panelDirty) {
+        panelDirty = false;
+        renderPanel();
+      }
+    }, 0);
+  window.addEventListener('pointerup', releasePanel);
+  window.addEventListener('pointercancel', releasePanel);
+
   // Refaz o painel. Enquanto escreve num campo, só atualiza os valores (para não perder o cursor).
   function renderPanel(force = false) {
+    if (!force && panelHold) {
+      panelDirty = true;
+      return syncLive();
+    }
     const a = document.activeElement;
     const typing = a && panel.contains(a) && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && a.type === 'text'));
     if (typing && !force) return syncLive();
@@ -1093,6 +1154,7 @@ export async function mount(root) {
     bg.origKey = L.originalKey || L.imageKey;
     tab = 'foto';
     editor.setTapMode(true, L.id);
+    applyBgTool();
     syncChrome();
     renderPanel(true);
     try {
@@ -1149,9 +1211,42 @@ export async function mount(root) {
   }
 
   function bgTap(pt) {
-    if (!bg.active || bg.ops.length >= 200) return;
-    bg.ops.push({ kind: 'point', x: pt.x, y: pt.y });
+    if (!bg.active || bg.ops.length >= 400 || isBrushTool(bg.tool)) return;
+    bg.ops.push({ kind: bg.tool === 'color' ? 'color' : 'point', x: pt.x, y: pt.y });
     runBg();
+  }
+
+  // Liga o pincel no editor quando a ferramenta é borracha ou restaurar.
+  function applyBgTool() {
+    if (!bg.active) return;
+    editor.setBrush(isBrushTool(bg.tool) ? { r: bg.brush, restore: bg.tool === 'restore' } : null);
+  }
+
+  // Borracha / restaurar: mostra na hora e, ao soltar o dedo, o apagador refaz certinho.
+  function bgBrush(phase, pt) {
+    if (!bg.active || !isBrushTool(bg.tool)) return;
+    const L = bgLayer();
+    if (!L) return;
+    if (phase === 'start') {
+      if (bg.ops.length >= 400) {
+        toast('Muitos passos nesta foto. Toque em Pronto e depois em Tirar fundo de novo para continuar.', { kind: 'error' });
+        return;
+      }
+      const r = bg.brush / editor.imageScale(L);
+      bg.stroke = newStroke(bg.tool, pt, r);
+      if (bg.result) paintPreview(bg.result, getImg(bg.origKey), bg.tool, r, pt, pt);
+      editor.redraw();
+    } else if (phase === 'move' && bg.stroke) {
+      const from = extendStroke(bg.stroke, pt);
+      if (from && bg.result) {
+        paintPreview(bg.result, getImg(bg.origKey), bg.tool, bg.stroke.r, from, pt);
+        editor.redraw();
+      }
+    } else if (phase === 'end' && bg.stroke) {
+      bg.ops.push(bg.stroke);
+      bg.stroke = null;
+      runBg();
+    }
   }
 
   // Sai do modo sem aplicar (volta a foto de antes).
@@ -1273,15 +1368,34 @@ export async function mount(root) {
     const L = selected();
     if (!L || L.type === 'photo') return;
     const u = editor.unit();
+    const members = editor.groupOf(L);
+    if (members.length > 1) {
+      // grupo: duplica todas as peças, num grupo novo
+      const gid = uid();
+      const copies = members.map((m) => ({ ...clone(m), id: uid(), group: gid, x: m.x + 4 * u, y: m.y + 4 * u }));
+      editor.change((d, s) => s.layers.push(...copies), { commit: true });
+      editor.select(copies[0].id);
+      return;
+    }
     const copy = { ...clone(L), id: uid(), x: L.x + 4 * u, y: L.y + 4 * u };
+    delete copy.group;
     editor.change((d, s) => s.layers.splice(s.layers.indexOf(L) + 1, 0, copy), { commit: true });
     editor.select(copy.id);
   }
 
-  function deleteLayer(id) {
+  // whole = apagar o grupo inteiro (pela barra ou pelo teclado); na lista de camadas, só aquela.
+  function deleteLayer(id, { whole = false } = {}) {
     const s = side();
     const L = s.layers.find((l) => l.id === id);
     if (!L) return;
+    const members = whole ? editor.groupOf(L) : [L];
+    if (members.length > 1) {
+      const ids = new Set(members.map((m) => m.id));
+      editor.change((d, sd) => (sd.layers = sd.layers.filter((l) => !ids.has(l.id))), { commit: true });
+      editor.select(null);
+      toast('Grupo apagado.', { action: 'Desfazer', duration: 6000, onAction: undo });
+      return;
+    }
     const what = isBgPhoto(L)
       ? 'Foto de fundo tirada.'
       : L.type === 'photo'
@@ -1294,6 +1408,215 @@ export async function mount(root) {
     editor.change((d, sd) => (sd.layers = sd.layers.filter((l) => l.id !== id)), { commit: true });
     editor.select(null);
     toast(what, { action: 'Desfazer', duration: 6000, onAction: undo });
+  }
+
+
+  // ---------- ajustes da peça (transparência, mistura, prender, alinhar) ----------
+  const membersOf = (L) => (L ? editor.groupOf(L) : []);
+
+  // Área para alinhar: o card inteiro, a área segura (botton e pôster) ou dentro da borda do papelão.
+  function alignArea() {
+    const d = editor.design;
+    const f = formatInfo(d.format);
+    const { w, h } = cardSize(d);
+    if (f.circle) {
+      const r = f.face / 2 - 3;
+      return { x0: -r, y0: -r, x1: r, y1: r };
+    }
+    const m = f.safe || (f.guide ? f.guide.inset : 0);
+    return { x0: -w / 2 + m, y0: -h / 2 + m, x1: w / 2 - m, y1: h / 2 - m };
+  }
+
+  function shiftFor(where, b, area) {
+    if (where === 'left') return [area.x0 - b.x0, 0];
+    if (where === 'right') return [area.x1 - b.x1, 0];
+    if (where === 'hcenter') return [(area.x0 + area.x1) / 2 - b.cx, 0];
+    if (where === 'top') return [0, area.y0 - b.y0];
+    if (where === 'bottom') return [0, area.y1 - b.y1];
+    return [0, (area.y0 + area.y1) / 2 - b.cy];
+  }
+
+  function alignToCard(where) {
+    const L = selected();
+    if (!L || L.type === 'photo') return;
+    const list = membersOf(L);
+    const [dx, dy] = shiftFor(where, editor.boundsOf(list), alignArea());
+    editor.change(() => list.forEach((l) => ((l.x += dx), (l.y += dy))), { commit: true });
+  }
+
+  const markedLayers = () => multi.ids.map((id) => editor.layerById(id)).filter((l) => l && l.type !== 'photo');
+
+  function alignMarked(where) {
+    const list = markedLayers();
+    if (list.length < 2) return;
+    const area = editor.boundsOf(list);
+    editor.change(() => {
+      for (const l of list) {
+        const [dx, dy] = shiftFor(where, layerBounds(l), area);
+        l.x += dx;
+        l.y += dy;
+      }
+    }, { commit: true });
+  }
+
+  function distributeMarked(axis) {
+    const list = markedLayers();
+    if (list.length < 3) return;
+    const items = list.map((l) => ({ l, b: layerBounds(l) }));
+    const h = axis === 'h';
+    items.sort((a, b) => (h ? a.b.cx - b.b.cx : a.b.cy - b.b.cy));
+    const start = h ? items[0].b.x0 : items[0].b.y0;
+    const end = h ? items[items.length - 1].b.x1 : items[items.length - 1].b.y1;
+    const total = items.reduce((t, it) => t + (h ? it.b.w : it.b.h), 0);
+    const gap = (end - start - total) / (items.length - 1);
+    editor.change(() => {
+      let at = start;
+      for (const it of items) {
+        if (h) it.l.x += at - it.b.x0;
+        else it.l.y += at - it.b.y0;
+        at += (h ? it.b.w : it.b.h) + gap;
+      }
+    }, { commit: true });
+  }
+
+  function toggleMulti(id) {
+    const i = multi.ids.indexOf(id);
+    if (i >= 0) multi.ids.splice(i, 1);
+    else multi.ids.push(id);
+    editor.setMulti(multi.ids);
+    syncChrome();
+    renderPanel(true);
+  }
+
+  function setMultiMode(on) {
+    multi.on = on;
+    multi.ids = [];
+    if (on) {
+      // começa com o que já estava escolhido (o grupo inteiro, se for grupo)
+      const L = selected();
+      if (L && L.type !== 'photo') multi.ids = membersOf(L).map((l) => l.id);
+      editor.select(null);
+    }
+    editor.setMulti(multi.ids);
+    tab = 'camadas';
+    syncChrome();
+    renderPanel(true);
+  }
+
+  function groupMarked() {
+    const list = markedLayers();
+    if (list.length < 2) return;
+    const gid = uid();
+    const locked = list.some((l) => l.locked); // presa uma, preso o grupo todo
+    editor.change(() => list.forEach((l) => ((l.group = gid), locked ? (l.locked = true) : delete l.locked)), { commit: true });
+    multi.on = false;
+    multi.ids = [];
+    editor.setMulti([]);
+    editor.select(list[0].id);
+    tab = 'camadas';
+    syncChrome();
+    renderPanel(true);
+    toast('Agrupado! Agora as peças andam, giram e crescem juntas.');
+  }
+
+  // ---------- texto na borda do botton ----------
+  function textOnBorder(dir) {
+    const L = selected();
+    const f = formatInfo(editor.design.format);
+    if (!L || L.type !== 'text' || !f.circle) return;
+    const R = Math.max(4, f.face / 2 - 3 - L.size * 0.42);
+    let wide = false;
+    editor.change(() => {
+      L.arcR = Math.round(R * 100) / 100;
+      const th = textRunWidth(L) / R;
+      wide = th > Math.PI * 1.15;
+      L.curve = dir * Math.max(1, Math.min(100, Math.round((th / (Math.PI * 2 * 0.98)) * 100)));
+      L.x = 0;
+      L.y = dir > 0 ? -R : R;
+      L.rotation = 0;
+    }, { commit: true });
+    renderPanel(true);
+    if (wide) toast('O texto é comprido para a borda: diminua o tamanho da letra ou o texto.', { duration: 6000 });
+  }
+
+  function textStraight() {
+    const L = selected();
+    if (!L || L.type !== 'text') return;
+    editor.change(() => {
+      L.curve = 0;
+      delete L.arcR;
+    }, { commit: true });
+    renderPanel(true);
+  }
+
+  // ---------- letras ----------
+  function useFont(id) {
+    fontRecent = [id, ...fontRecent.filter((x) => x !== id)].slice(0, 10);
+    db.setMeta('fontRecent', fontRecent).catch(() => {});
+  }
+
+  function toggleFav(id) {
+    fontFavs = fontFavs.includes(id) ? fontFavs.filter((x) => x !== id) : [...fontFavs, id];
+    db.setMeta('fontFavs', fontFavs).catch(() => {});
+    if (!fontFavs.length && fontCat === 'fav') fontCat = null;
+    renderPanel(true);
+  }
+
+  function applyPair(pid) {
+    const L = selected();
+    const p = FONT_PAIRS.find((x) => x.id === pid);
+    if (!L || L.type !== 'text' || !p) return;
+    let others = 0;
+    editor.change((d, s) => {
+      L.font = p.title;
+      for (const l of s.layers) {
+        if (l.type === 'text' && l !== L) {
+          l.font = p.body;
+          others++;
+        }
+      }
+    }, { commit: true });
+    useFont(p.body);
+    useFont(p.title);
+    toast(others ? `Par “${p.name}” aplicado neste lado.` : `Este texto ficou com a letra do título. Adicione outro texto para ele ganhar a segunda letra do par.`, {
+      action: 'Desfazer',
+      onAction: undo,
+      duration: 6000,
+    });
+  }
+
+  // ---------- QR code ----------
+  function addQr() {
+    const text = qrFromPreset(qrKind, qrDraft).slice(0, QR_MAX);
+    if (!qrDraft.trim()) {
+      toast(qrKind === 'instagram' ? 'Escreva o @ do Instagram.' : qrKind === 'whatsapp' ? 'Escreva o número com DDD.' : 'Escreva o link ou o texto.', { kind: 'error' });
+      const ta = panel.querySelector('[data-qr-input]');
+      if (ta) ta.focus();
+      return;
+    }
+    const { w, h } = cardSize(editor.design);
+    addSticker({ kind: 'qr', name: 'qr', text, color: '#2a1d25', qrBg: '#ffffff', rotation: 0, size: Math.max(16, Math.min(28, Math.min(w, h) * 0.5)), x: 0, y: 0 });
+  }
+
+  // ---------- conta-gotas ----------
+  function startPick(prop) {
+    if (editor.isPicking()) {
+      editor.setPickMode(null);
+      syncChrome();
+      return;
+    }
+    editor.setPickMode((color) => {
+      if (color) {
+        setColor(prop, color, true);
+        renderPanel(true);
+        toast('Cor pega!', { duration: 2000 });
+      } else {
+        toast('Ali não tem cor (fora do card). Tente de novo.', { kind: 'error' });
+      }
+      syncChrome();
+    });
+    syncChrome();
+    stage.scrollIntoView({ behavior: reduceMotion() ? 'auto' : 'smooth', block: 'nearest' });
   }
 
   function applyTemplate(id) {
@@ -2227,6 +2550,39 @@ export async function mount(root) {
         case 'bg-auto':
           bg.ops.unshift({ kind: 'edges' });
           return runBg();
+        case 'piece':
+          return setTab('camadas');
+        case 'lock':
+          if (L) {
+            const on = !L.locked;
+            editor.change(() => membersOf(L).forEach((l) => (l.locked = on)), { commit: true });
+            toast(on ? 'Presa no lugar.' : 'Solta: já dá para mexer.', { duration: 2200 });
+          }
+          return;
+        case 'ungroup':
+          if (L) {
+            editor.change(() => membersOf(L).forEach((l) => delete l.group), { commit: true });
+            toast('Desagrupado.', { duration: 2200 });
+          }
+          return;
+        case 'multi-start':
+          return setMultiMode(true);
+        case 'multi-done':
+          return setMultiMode(false);
+        case 'group':
+          return groupMarked();
+        case 'multi-lock':
+        case 'multi-unlock': {
+          const on = act === 'multi-lock';
+          editor.change(() => markedLayers().forEach((l) => (l.locked = on)), { commit: true });
+          return toast(on ? 'Peças presas no lugar.' : 'Peças soltas.', { duration: 2200 });
+        }
+        case 'text-arc':
+          return textOnBorder(+ds.dir);
+        case 'text-straight':
+          return textStraight();
+        case 'add-qr':
+          return addQr();
         case 'fx-reset':
           if (L && L.type === 'photo') editor.change(() => (L.fx = { ...L.fx, filter: 'normal', brightness: 0, contrast: 0, saturation: 0 }), { commit: true });
           return;
@@ -2239,7 +2595,7 @@ export async function mount(root) {
         case 'dup':
           return duplicate();
         case 'del':
-          return L && deleteLayer(L.id);
+          return L && deleteLayer(L.id, { whole: true });
         case 'save':
           return saveCard();
         case 'new':
@@ -2268,6 +2624,28 @@ export async function mount(root) {
       stickerPack = ds.pack;
       return renderPanel(true);
     }
+    if (ds.bgTool) {
+      bg.tool = ds.bgTool;
+      applyBgTool();
+      syncChrome();
+      return renderPanel(true);
+    }
+    if (ds.pickColor != null) return startPick(ds.pickColor);
+    if (ds.fontCat) {
+      fontCat = ds.fontCat;
+      return renderPanel(true);
+    }
+    if (ds.fontFav) return toggleFav(ds.fontFav);
+    if (ds.fontPair) return applyPair(ds.fontPair);
+    if (ds.qrKind) {
+      qrKind = ds.qrKind;
+      return renderPanel(true);
+    }
+    if (ds.blend && L) return editor.change(() => membersOf(L).forEach((l) => (l.blend = ds.blend === 'normal' ? undefined : ds.blend)), { commit: true });
+    if (ds.alignCard) return alignToCard(ds.alignCard);
+    if (ds.alignMulti) return alignMarked(ds.alignMulti);
+    if (ds.distribute) return distributeMarked(ds.distribute);
+    if (ds.multiToggle) return toggleMulti(ds.multiToggle);
     if (ds.addMine) return addMine(ds.addMine);
     if (ds.imgFrame && L) return editor.change(() => (L.frame = ds.imgFrame), { commit: true });
     if (ds.pen) {
@@ -2284,6 +2662,7 @@ export async function mount(root) {
     if (ds.stsize) return changeStickerSize(ds.id, +ds.stsize);
     if (ds.orient) return editor.setOrientation(ds.orient);
     if (ds.side) {
+      if (multi.on) setMultiMode(false);
       editor.setSide(ds.side);
       tab = ds.side === 'back' && !side().layers.length ? 'modelos' : tab;
       syncChrome();
@@ -2291,7 +2670,10 @@ export async function mount(root) {
       return;
     }
     if (ds.colorProp != null && 'color' in ds) return setColor(ds.colorProp, ds.color || null, true);
-    if (ds.font && L) return editor.change(() => (L.font = ds.font), { commit: true });
+    if (ds.font && L) {
+      useFont(ds.font);
+      return editor.change(() => (L.font = ds.font), { commit: true });
+    }
     if (ds.align && L) return editor.change(() => (L.align = ds.align), { commit: true });
     if (ds.filter && L) return editor.change(() => (L.fx = { ...L.fx, filter: ds.filter }), { commit: true });
     if (ds.addSticker) return addSticker({ kind: 'shape', name: ds.addSticker, color: stickerInfo(ds.addSticker).color });
@@ -2345,10 +2727,40 @@ export async function mount(root) {
       return;
     }
     if (t.matches('[data-color-input]')) return setColor(t.dataset.colorInput, t.value, false);
+    if (t.matches('[data-brush-size]')) {
+      bg.brush = +t.value;
+      const dot = panel.querySelector('[data-brush-dot]');
+      if (dot) dot.style.setProperty('--d', `${Math.min(44, bg.brush)}px`);
+      return applyBgTool();
+    }
+    if (t.matches('[data-qr-input]')) {
+      qrDraft = t.value;
+      return;
+    }
+    if (t.matches('[data-curve]') && L && L.type === 'text') {
+      editor.change(() => {
+        L.curve = +t.value;
+        delete L.arcR;
+      });
+      const out = t.parentElement.querySelector('output');
+      if (out) out.textContent = t.value;
+      return;
+    }
+    if (t.matches('[data-piece="opacity"]') && L) {
+      const v = +t.value / 100;
+      editor.change(() => membersOf(L).forEach((l) => (l.opacity = v >= 0.995 ? undefined : v)));
+      const out = t.parentElement.querySelector('output');
+      if (out) out.textContent = `${t.value}%`;
+      return;
+    }
     if (t.matches('[data-prop]') && L && t.type !== 'checkbox') {
       const div = +(t.dataset.div || 1);
       const v = t.type === 'range' ? +t.value / div : t.value;
       editor.change(() => setPath(L, t.dataset.prop, v));
+      if (t.type === 'range') {
+        const out = t.parentElement.querySelector('output');
+        if (out && (t.dataset.prop === 'spacing' || t.dataset.prop === 'lineHeight')) out.textContent = t.value;
+      }
       if (t.tagName === 'TEXTAREA') {
         clearTimeout(textTimer);
         textTimer = setTimeout(() => editor.commitNow(), 700);
@@ -2367,6 +2779,12 @@ export async function mount(root) {
     }
     if (t.matches('[data-hole]')) return editor.setHole(t.checked);
     if (t.matches('[data-photo]')) return editor.commitNow();
+    if (t.matches('[data-piece]')) return editor.commitNow();
+    if (t.matches('[data-curve]')) {
+      editor.commitNow();
+      return renderPanel(true);
+    }
+    if (t.matches('[data-prop="@qrBg"]') && L) return editor.change(() => (L.qrBg = t.checked ? '#ffffff' : null), { commit: true });
     if (t.matches('[data-color-input]')) return setColor(t.dataset.colorInput, t.value, true);
     if (t.matches('[data-prop]') && L) {
       if (t.type === 'checkbox') {
@@ -2397,6 +2815,8 @@ export async function mount(root) {
   // ---------- início ----------
   silMode = !!(await db.getMeta('silhouette').catch(() => false));
   themes = await listThemes().catch(() => []);
+  fontFavs = (await db.getMeta('fontFavs').catch(() => null)) || [];
+  fontRecent = (await db.getMeta('fontRecent').catch(() => null)) || [];
   try {
     await loadCards();
   } catch (_) {
@@ -2494,6 +2914,8 @@ export async function mount(root) {
     releaseAll();
     document.removeEventListener('paste', onPaste);
     document.removeEventListener('keydown', onKey);
+    window.removeEventListener('pointerup', releasePanel);
+    window.removeEventListener('pointercancel', releasePanel);
     window.removeEventListener('dragenter', onDragEnter);
     window.removeEventListener('dragover', onDragOver);
     window.removeEventListener('dragleave', onDragLeave);

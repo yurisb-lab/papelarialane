@@ -10,6 +10,7 @@ import { db } from '../db.js';
 import { saveSticker, listStickers, deleteSticker, restoreSticker, onStickersChange, stickerUrls, revokeUrls } from '../library.js';
 import { addStickerToSheet, isStickerRec, onSheet } from '../records.js';
 import { swatches } from './pc-panels.js';
+import { BG_TOOLS, BRUSH_SIZES, isBrushTool, newStroke, extendStroke, paintPreview } from '../brush.js';
 
 export const title = 'Meus adesivos';
 
@@ -64,6 +65,10 @@ export async function mount(root) {
     outline: { on: true, size: 5, color: '#ffffff' },
     view: null, // onde a figura foi desenhada no canvas: { dx, dy, s, pad }
     timer: 0,
+    tool: 'point', // point | color | erase | restore
+    brush: BRUSH_SIZES.def,
+    stroke: null,
+    cursor: null, // onde está o pincel (px do canvas)
   };
 
   function renderMakerEmpty() {
@@ -84,11 +89,19 @@ export async function mount(root) {
           <canvas class="maker__canvas" data-canvas aria-label="Prévia do adesivo. ${isTouch ? 'Toque' : 'Clique'} numa parte do fundo para apagar."></canvas>
           <span class="stage__busy" data-busy hidden>${icon('wand', { size: 18 })}Apagando o fundo…</span>
         </div>
-        <p class="maker__help">${isTouch ? 'Toque' : 'Clique'} no que ainda sobrou de fundo para apagar. A barra “Força” apaga mais ou menos cores parecidas.</p>
-        <div class="slider">
+        <div class="bg-tools" role="group" aria-label="Ferramenta">
+          ${BG_TOOLS.map((t) => `<button type="button" class="bg-tool" data-bg-tool="${t.id}" aria-pressed="${t.id === M.tool}">${icon(t.icon, { size: 22 })}<span>${t.name}</span></button>`).join('')}
+        </div>
+        <p class="maker__help" data-tool-help></p>
+        <div class="slider" data-tol-row>
           <span class="slider__label">Força</span>
           <input type="range" min="1" max="100" step="1" value="${M.tolerance}" data-tol aria-label="Força do apagador">
           <output class="slider__value" data-tol-out>${M.tolerance}</output>
+        </div>
+        <div class="slider" data-brush-row>
+          <span class="slider__label">Pincel</span>
+          <input type="range" min="${BRUSH_SIZES.min}" max="${BRUSH_SIZES.max}" step="1" value="${M.brush}" data-brush-size aria-label="Tamanho do pincel">
+          <span class="brush-dot" data-brush-dot style="--d:${Math.min(44, M.brush)}px" aria-hidden="true"></span>
         </div>
         <div class="tool-row">
           <button type="button" class="tool-btn" data-act="auto">${icon('sparkle', { size: 22 })}Automático</button>
@@ -115,7 +128,16 @@ export async function mount(root) {
         </div>
       </div>`;
     const c = maker.querySelector('[data-canvas]');
-    c.addEventListener('pointerup', onCanvasTap);
+    c.addEventListener('pointerdown', onCanvasDown);
+    c.addEventListener('pointermove', onCanvasMove);
+    c.addEventListener('pointerup', onCanvasUp);
+    c.addEventListener('pointercancel', onCanvasUp);
+    c.addEventListener('pointerleave', () => {
+      if (!M.stroke && M.cursor) {
+        M.cursor = null;
+        drawPreview();
+      }
+    });
     new ResizeObserver(() => drawPreview()).observe(c);
     syncMaker();
   }
@@ -135,10 +157,21 @@ export async function mount(root) {
     if (out) out.textContent = M.tolerance;
     const more = maker.querySelector('[data-outline-more]');
     if (more) more.hidden = !M.outline.on;
+    const brushTool = isBrushTool(M.tool);
+    const tool = BG_TOOLS.find((t) => t.id === M.tool) || BG_TOOLS[0];
+    const help = maker.querySelector('[data-tool-help]');
+    if (help) help.textContent = `${tool.help(isTouch ? 'Toque' : 'Clique')}${brushTool ? '' : ' A barra “Força” apaga mais ou menos cores parecidas.'}`;
+    const tr = maker.querySelector('[data-tol-row]');
+    if (tr) tr.hidden = brushTool;
+    const br = maker.querySelector('[data-brush-row]');
+    if (br) br.hidden = !brushTool;
+    maker.querySelectorAll('[data-bg-tool]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.bgTool === M.tool)));
+    const cv = maker.querySelector('[data-canvas]');
+    if (cv) cv.classList.toggle('is-brush', brushTool);
   }
 
   let checker = null;
-  function drawPreview() {
+  function drawPreview({ live = false } = {}) {
     const c = maker.querySelector('[data-canvas]');
     if (!c || !M.result) return;
     const rect = c.getBoundingClientRect();
@@ -160,7 +193,8 @@ export async function mount(root) {
     }
     ctx.fillStyle = checker;
     ctx.fillRect(0, 0, rect.width, rect.height);
-    const res = processPhoto(M.result, null, M.outline.on ? M.outline : null, 900);
+    // enquanto passa o pincel, mostra sem o contorno (fica mais rápido)
+    const res = processPhoto(M.result, null, M.outline.on && !live ? M.outline : null, 900);
     const iw = M.result.width;
     const ih = M.result.height;
     const tw = iw + res.pad * 2;
@@ -171,16 +205,86 @@ export async function mount(root) {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(res.canvas, dx, dy, tw * s, th * s);
     M.view = { dx, dy, s, pad: res.pad };
+    if (M.cursor && isBrushTool(M.tool)) {
+      ctx.beginPath();
+      ctx.arc(M.cursor.x, M.cursor.y, M.brush, 0, Math.PI * 2);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.stroke();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = M.tool === 'restore' ? '#2f8f6b' : '#7a52d1';
+      ctx.stroke();
+    }
   }
 
-  function onCanvasTap(e) {
-    if (!M.view || !M.result || M.ops.length >= 200) return;
-    const c = e.currentTarget;
-    const r = c.getBoundingClientRect();
-    const x = (e.clientX - r.left - M.view.dx) / M.view.s - M.view.pad;
-    const y = (e.clientY - r.top - M.view.dy) / M.view.s - M.view.pad;
+  // Ponto do canvas (px) -> pixel da foto.
+  function toImage(e) {
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = e.clientX - r.left;
+    const py = e.clientY - r.top;
+    return { px, py, x: (px - M.view.dx) / M.view.s - M.view.pad, y: (py - M.view.dy) / M.view.s - M.view.pad };
+  }
+
+  let down = null; // { id, x, y } do toque, para saber se foi um toque parado
+  let liveRaf = 0;
+  const liveDraw = () => {
+    if (liveRaf) return;
+    liveRaf = requestAnimationFrame(() => {
+      liveRaf = 0;
+      forgetPhoto(M.result);
+      drawPreview({ live: !!M.stroke });
+    });
+  };
+
+  function onCanvasDown(e) {
+    if (!M.view || !M.result) return;
+    const p = toImage(e);
+    if (isBrushTool(M.tool)) {
+      if (M.stroke || M.ops.length >= 400 || M.result === M.img) return; // (ainda calculando o primeiro resultado)
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch (_) {}
+      e.preventDefault();
+      const r = M.brush / M.view.s;
+      M.stroke = newStroke(M.tool, p, r);
+      M.strokeId = e.pointerId;
+      M.cursor = { x: p.px, y: p.py };
+      paintPreview(M.result, M.img, M.tool, r, p, p);
+      liveDraw();
+      return;
+    }
+    down = { id: e.pointerId, x: p.px, y: p.py };
+  }
+
+  function onCanvasMove(e) {
+    if (!M.view || !M.result) return;
+    if (isBrushTool(M.tool)) {
+      const p = toImage(e);
+      M.cursor = { x: p.px, y: p.py };
+      if (M.stroke && e.pointerId === M.strokeId) {
+        const from = extendStroke(M.stroke, p);
+        if (from) paintPreview(M.result, M.img, M.tool, M.stroke.r, from, p);
+      }
+      liveDraw();
+      return;
+    }
+    if (down && down.id === e.pointerId && Math.hypot(e.clientX - e.currentTarget.getBoundingClientRect().left - down.x, e.clientY - e.currentTarget.getBoundingClientRect().top - down.y) > 10) down = null;
+  }
+
+  function onCanvasUp(e) {
+    if (M.stroke && e.pointerId === M.strokeId) {
+      M.ops.push(M.stroke);
+      M.stroke = null;
+      if (e.pointerType !== 'mouse') M.cursor = null;
+      run();
+      return;
+    }
+    if (!down || down.id !== e.pointerId || e.type !== 'pointerup') return;
+    down = null;
+    if (!M.view || !M.result || M.ops.length >= 400 || isBrushTool(M.tool)) return;
+    const { x, y } = toImage(e);
     if (x < 0 || y < 0 || x >= M.result.width || y >= M.result.height) return;
-    M.ops.push({ kind: 'point', x, y });
+    M.ops.push({ kind: M.tool === 'color' ? 'color' : 'point', x, y });
     run();
   }
 
@@ -368,6 +472,12 @@ export async function mount(root) {
       case 'cancel':
         return resetMaker();
     }
+    if (ds.bgTool) {
+      M.tool = ds.bgTool;
+      M.stroke = null;
+      syncMaker();
+      return drawPreview();
+    }
     if (ds.colorProp === 'outline' && 'color' in ds) {
       M.outline.color = ds.color;
       maker.querySelectorAll('[data-color-prop="outline"]').forEach((b) => b.setAttribute('aria-checked', String(b === t)));
@@ -402,6 +512,10 @@ export async function mount(root) {
       syncMaker();
       clearTimeout(M.timer);
       M.timer = setTimeout(() => run(), 90);
+    } else if (t.matches('[data-brush-size]')) {
+      M.brush = +t.value;
+      const dot = maker.querySelector('[data-brush-dot]');
+      if (dot) dot.style.setProperty('--d', `${Math.min(44, M.brush)}px`);
     } else if (t.matches('[data-outline-size]')) {
       M.outline.size = +t.value;
       drawPreview();

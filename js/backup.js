@@ -20,7 +20,7 @@ const MANIFEST = 'copia.json';
 // Ajustes que vão junto. A conta da nuvem, a fila de envio e o rascunho do editor ficam de fora:
 // são deste aparelho.
 const LIST_META = ['themes', 'folders']; // listas { id, ... }: junta com o que já tem
-const PLAIN_META = ['notebookSpec', 'silhouette']; // só entram se o aparelho ainda não tiver
+const PLAIN_META = ['notebookSpec', 'silhouette', 'fontFavs', 'fontRecent']; // só entram se o aparelho ainda não tiver
 const LAST_KEY = 'lastBackup';
 
 export class BackupError extends Error {
