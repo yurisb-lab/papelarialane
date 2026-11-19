@@ -89,6 +89,27 @@ Vários arquivos de uma vez saem num `.zip`. O botão **Usar em outra ferramenta
 
 Bibliotecas em `vendor/` (carregadas só quando a tela de PDF é usada): pdf-lib 2.11.1 (@cantoo), pdf.js 3.11.174 e JSZip 3.10.1.
 
+## Ferramentas do editor
+
+- **Letras:** 45 fontes guardadas no app (funcionam sem internet), separadas em **Caligrafia**, **Pincel e caneta**, **Serifa chique**, **Moderna** e **Fofa**.
+  - Cada letra aparece escrita com o próprio texto do card.
+  - A estrela guarda a letra nas **Favoritas**. As **Últimas** usadas também ficam à mão.
+  - **Pares prontos** (Casamento, Clássico, Realeza…): o texto escolhido fica com a letra do título e os outros textos do lado ficam com a segunda letra.
+- **Texto:** espaço entre letras, espaço entre linhas, **Tudo em maiúsculas** e **Curva** (arco para cima ou sorriso).
+  - Nos bottons, **Na borda de cima** e **Na borda de baixo** põem o texto acompanhando o círculo, dentro da área segura. Trocando o nome (ou fazendo série com nomes), ele continua na borda.
+- **Tirar fundo** tem 4 ferramentas (no editor e em Meus adesivos):
+  - **Tocar na cor:** apaga a cor tocada e o que estiver ligado a ela (como antes).
+  - **Cor na foto toda** (borracha mágica): apaga a cor em todo lugar, até nos buracos (entre os braços, dentro das letras).
+  - **Borracha:** apaga onde o dedo passa.
+  - **Restaurar:** traz a foto de volta onde o dedo passa.
+- **Conta-gotas:** o botão com o conta-gotas, em qualquer fileira de cores do editor, pega uma cor do card. No tablet, a bolinha acima do dedo mostra a cor antes de soltar.
+- **Ajustes** (na barra da peça escolhida, ou na aba Camadas):
+  - **Transparência** e **Mistura** (Multiplicar, Clarear, Sobrepor, Luz suave, Colorir). Multiplicar deixa o branco transparente, bom para desenho escaneado e textura.
+  - **Alinhar no card:** encosta a peça na beirada ou põe no meio. Nos bottons usa a área segura; no pôster, a margem da impressora.
+  - **Prender no lugar:** a peça não sai do lugar sem querer (dá para mudar cor e texto).
+- **Escolher várias** (aba Camadas): marque peças para **agrupar** (andam, giram e crescem juntas), **alinhar entre si**, **distribuir** com espaço igual, prender ou soltar. **Desagrupar** fica nos Ajustes do grupo.
+- **QR code** (Adesivos › QR code): link, Instagram, WhatsApp ou o Pix copia e cola. Feito no aparelho, sem internet. Teste com a câmera do celular antes de imprimir.
+
 ## Como usar
 
 É um site estático: não precisa instalar nada nem compilar.
@@ -139,6 +160,8 @@ js/backup.js          cópia de segurança (.zip com tudo) e volta da cópia
 js/views/backup.js    tela Cópia de segurança
 js/mockup.js          prévia realista do botton (cúpula, brilho, verso de metal), em canvas
 js/views/button-preview.js  janelinha "Ver botton pronto"
+js/brush.js           borracha e restaurar do tirar fundo (prévia da pincelada)
+js/qr.js              QR code (usa vendor/qrcode.mjs, licença MIT)
 ```
 
 **Ao publicar mudanças:** aumente `VERSION` em `sw.js` para os aparelhos baixarem a versão nova.

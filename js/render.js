@@ -240,21 +240,130 @@ export function drawPhoto(ctx, img, layer, px, py, k, maxSide, raw) {
 }
 
 // ---------- texto ----------
+// Além do básico, o texto tem: spacing (espaço entre letras, em "tamanhos de letra"),
+// lineHeight (entrelinha, 1.2 = normal), upper (tudo em maiúsculas) e curve (-100 a 100: arco).
+// No texto curvo, (x, y) é o meio do arco (não o meio da caixa): assim, ao trocar o texto,
+// ele continua no mesmo círculo. arcR (mm) prende o raio do arco (ex.: na borda do botton).
 let measureCtx = null;
-export function textMetrics(layer) {
+const advCache = new Map(); // fonte|linha -> larguras acumuladas a 100 px
+
+function mctx() {
   if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
-  measureCtx.font = cssFont(layer.font, 100);
-  const lines = String(layer.text || ' ').split('\n');
-  const widths = lines.map((l) => measureCtx.measureText(l || ' ').width * (layer.size / 100));
-  const lineH = layer.size * 1.2;
+  return measureCtx;
+}
+
+const shownText = (layer) => {
+  const t = String(layer.text == null ? '' : layer.text);
+  return layer.upper ? t.toLocaleUpperCase('pt-BR') : t;
+};
+
+export const isCurved = (layer) => !!(layer && layer.type === 'text' && Math.abs(layer.curve || 0) >= 1);
+const spacingOf = (layer) => (layer.spacing || 0) * layer.size;
+
+// Largura de cada letra (mm), respeitando o encaixe entre as letras da fonte.
+function glyphAdvances(layer, line) {
+  const chars = Array.from(line);
+  const key = `${layer.font}|${line}`;
+  let acc = advCache.get(key);
+  if (!acc) {
+    const c = mctx();
+    c.font = cssFont(layer.font, 100);
+    acc = [0];
+    let s = '';
+    for (const ch of chars) {
+      s += ch;
+      acc.push(c.measureText(s).width);
+    }
+    if (advCache.size > 600) advCache.clear();
+    advCache.set(key, acc);
+  }
+  const f = layer.size / 100;
+  return chars.map((ch, i) => ({ ch, w: (acc[i + 1] - acc[i]) * f }));
+}
+
+function lineWidth(layer, line) {
+  const sp = spacingOf(layer);
+  if (!sp) {
+    const c = mctx();
+    c.font = cssFont(layer.font, 100);
+    return c.measureText(line || ' ').width * (layer.size / 100);
+  }
+  const g = glyphAdvances(layer, line || ' ');
+  return g.reduce((t, x) => t + x.w, 0) + sp * Math.max(0, g.length - 1);
+}
+
+// Raio do arco (mm) e para que lado ele curva (1 = arco para cima, -1 = sorriso).
+function arcOf(layer, W) {
+  const dir = (layer.curve || 0) < 0 ? -1 : 1;
+  if (layer.arcR > 0) return { R: layer.arcR, dir };
+  const th = (Math.min(100, Math.abs(layer.curve)) / 100) * Math.PI * 2 * 0.98;
+  return { R: W / th, dir };
+}
+
+// Onde fica cada letra do texto curvo (mm, em volta do meio do arco).
+function curveLayout(layer, stroke) {
+  const line = shownText(layer).replace(/\s*\n\s*/g, ' ') || ' ';
+  const g = glyphAdvances(layer, line);
+  const sp = spacingOf(layer);
+  const W = g.reduce((t, x) => t + x.w, 0) + sp * Math.max(0, g.length - 1);
+  const { R, dir } = arcOf(layer, W);
+  const hh = layer.size * 0.6 + stroke;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  let at = -W / 2;
+  const glyphs = g.map(({ ch, w }) => {
+    const t = at + w / 2;
+    at += w + sp;
+    const phi = t / R;
+    const x = R * Math.sin(phi);
+    const y = dir * R * (1 - Math.cos(phi));
+    const rot = dir * phi;
+    const cos = Math.cos(rot);
+    const sin = Math.sin(rot);
+    const hw = w / 2 + stroke;
+    for (const [cx, cy] of [
+      [-hw, -hh],
+      [hw, -hh],
+      [hw, hh],
+      [-hw, hh],
+    ]) {
+      const X = x + cx * cos - cy * sin;
+      const Y = y + cx * sin + cy * cos;
+      minX = Math.min(minX, X);
+      maxX = Math.max(maxX, X);
+      minY = Math.min(minY, Y);
+      maxY = Math.max(maxY, Y);
+    }
+    return { ch, x, y, rot };
+  });
+  return { glyphs, W, R, dir, box: { w: maxX - minX, h: maxY - minY, ox: (minX + maxX) / 2, oy: (minY + maxY) / 2 } };
+}
+
+// Largura do texto numa linha só (mm), para pôr o texto na borda do botton.
+export function textRunWidth(layer) {
+  return lineWidth(layer, shownText(layer).replace(/\s*\n\s*/g, ' ') || ' ');
+}
+
+export function textMetrics(layer) {
   const stroke = textStroke(layer);
+  if (isCurved(layer)) {
+    const cl = curveLayout(layer, stroke);
+    return { curved: cl, stroke, lineH: layer.size * 1.2, w: cl.box.w, h: cl.box.h, ox: cl.box.ox, oy: cl.box.oy };
+  }
+  const lines = (shownText(layer) || ' ').split('\n');
+  const widths = lines.map((l) => lineWidth(layer, l || ' '));
+  const lineH = layer.size * (layer.lineHeight || 1.2);
   return {
     lines,
     widths,
     lineH,
     stroke,
     w: Math.max(...widths, layer.size * 0.4) + stroke * 2,
-    h: lines.length * lineH + stroke * 2,
+    h: (lines.length - 1) * lineH + layer.size * 1.2 + stroke * 2,
+    ox: 0,
+    oy: 0,
   };
 }
 
@@ -270,27 +379,61 @@ function drawText(ctx, layer, px, py, k) {
   ctx.rotate((layer.rotation * Math.PI) / 180);
   ctx.font = cssFont(layer.font, size);
   ctx.textBaseline = 'middle';
-  ctx.textAlign = layer.align || 'center';
   ctx.lineJoin = 'round';
   ctx.miterLimit = 2;
-  const boxW = (m.w - m.stroke * 2) * k;
-  const ax = layer.align === 'left' ? -boxW / 2 : layer.align === 'right' ? boxW / 2 : 0;
-  const n = m.lines.length;
-  const lh = m.lineH * k;
-  const yOf = (i) => (i - (n - 1) / 2) * lh + size * 0.04;
   if (layer.shadow) {
     ctx.shadowColor = 'rgba(60, 20, 50, 0.42)';
     ctx.shadowBlur = 0.9 * k;
     ctx.shadowOffsetY = 0.45 * k;
   }
+  const dy = size * 0.04;
+  // pass: 'stroke' ou 'fill'. O contorno vai inteiro antes, para não cobrir a letra do lado.
+  let paint;
+  if (m.curved) {
+    ctx.textAlign = 'center';
+    paint = (pass) => {
+      for (const gl of m.curved.glyphs) {
+        ctx.save();
+        ctx.translate(gl.x * k, gl.y * k);
+        ctx.rotate(gl.rot);
+        if (pass === 'stroke') ctx.strokeText(gl.ch, 0, dy);
+        else ctx.fillText(gl.ch, 0, dy);
+        ctx.restore();
+      }
+    };
+  } else {
+    const boxW = (m.w - m.stroke * 2) * k;
+    const n = m.lines.length;
+    const lh = m.lineH * k;
+    const yOf = (i) => (i - (n - 1) / 2) * lh + dy;
+    const sp = spacingOf(layer) * k;
+    if (!sp) {
+      ctx.textAlign = layer.align || 'center';
+      const ax = layer.align === 'left' ? -boxW / 2 : layer.align === 'right' ? boxW / 2 : 0;
+      paint = (pass) => m.lines.forEach((line, i) => (pass === 'stroke' ? ctx.strokeText(line, ax, yOf(i)) : ctx.fillText(line, ax, yOf(i))));
+    } else {
+      // espaço entre letras: uma letra de cada vez
+      ctx.textAlign = 'left';
+      paint = (pass) =>
+        m.lines.forEach((line, i) => {
+          const lw = m.widths[i] * k;
+          let x = layer.align === 'left' ? -boxW / 2 : layer.align === 'right' ? boxW / 2 - lw : -lw / 2;
+          for (const g of glyphAdvances(layer, line || ' ')) {
+            if (pass === 'stroke') ctx.strokeText(g.ch, x, yOf(i));
+            else ctx.fillText(g.ch, x, yOf(i));
+            x += g.w * k + sp;
+          }
+        });
+    }
+  }
   if (m.stroke) {
     ctx.strokeStyle = layer.stroke.color;
     ctx.lineWidth = m.stroke * 2 * k;
-    m.lines.forEach((line, i) => ctx.strokeText(line, ax, yOf(i)));
+    paint('stroke');
     ctx.shadowColor = 'transparent';
   }
   ctx.fillStyle = layer.color || '#000';
-  m.lines.forEach((line, i) => ctx.fillText(line, ax, yOf(i)));
+  paint('fill');
   ctx.restore();
 }
 
@@ -355,17 +498,83 @@ function drawStrokes(ctx, layer, px, py, k) {
   ctx.restore();
 }
 
-// Caixa de uma camada de texto, adesivo ou desenho (mm, centro em relação ao centro do card).
+// Caixa de uma camada de texto, adesivo ou desenho (mm, antes de girar).
+// ox/oy = onde fica o meio da caixa em relação a (x, y) da camada (só muda no texto curvo).
 export function layerBox(layer) {
   if (layer.type === 'text') {
     const m = textMetrics(layer);
-    return { w: m.w, h: m.h };
+    return { w: m.w, h: m.h, ox: m.ox || 0, oy: m.oy || 0 };
   }
   if (layer.type === 'draw') {
     const f = layer.size / (layer.base || 1);
-    return { w: (layer.bw || 0) * f, h: (layer.bh || 0) * f };
+    return { w: (layer.bw || 0) * f, h: (layer.bh || 0) * f, ox: 0, oy: 0 };
   }
-  return stickerBox(layer);
+  return { ox: 0, oy: 0, ...stickerBox(layer) };
+}
+
+// Caixa reta (sem giro) que cobre a camada, em mm em relação ao centro do card.
+export function layerBounds(layer) {
+  const b = layerBox(layer);
+  const a = ((layer.rotation || 0) * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const [cx, cy] of [
+    [b.ox - b.w / 2, b.oy - b.h / 2],
+    [b.ox + b.w / 2, b.oy - b.h / 2],
+    [b.ox + b.w / 2, b.oy + b.h / 2],
+    [b.ox - b.w / 2, b.oy + b.h / 2],
+  ]) {
+    const X = layer.x + cx * cos - cy * sin;
+    const Y = layer.y + cx * sin + cy * cos;
+    x0 = Math.min(x0, X);
+    y0 = Math.min(y0, Y);
+    x1 = Math.max(x1, X);
+    y1 = Math.max(y1, Y);
+  }
+  return { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
+}
+
+// ---------- transparência e mistura ----------
+// opacity (0–1) e blend (modo de mistura) valem para qualquer camada. A camada é desenhada
+// inteira numa folha à parte e só depois vai para o card, para o contorno e a letra (ou as
+// partes de um adesivo) não ficarem aparecendo um através do outro.
+export const BLENDS = [
+  { id: 'normal', name: 'Normal', op: 'source-over' },
+  { id: 'multiply', name: 'Multiplicar', op: 'multiply' },
+  { id: 'screen', name: 'Clarear', op: 'screen' },
+  { id: 'overlay', name: 'Sobrepor', op: 'overlay' },
+  { id: 'soft-light', name: 'Luz suave', op: 'soft-light' },
+  { id: 'color', name: 'Colorir', op: 'color' },
+];
+
+let scratch = null;
+
+function withLayerFx(ctx, layer, fn) {
+  const a = layer.opacity == null ? 1 : Math.max(0, Math.min(1, layer.opacity));
+  const mode = (BLENDS.find((b) => b.id === layer.blend) || BLENDS[0]).op;
+  if (a >= 0.999 && mode === 'source-over') return fn(ctx);
+  if (a <= 0.001) return;
+  const cv = ctx.canvas;
+  if (!scratch) scratch = document.createElement('canvas');
+  if (scratch.width < cv.width || scratch.height < cv.height) {
+    scratch.width = Math.max(scratch.width, cv.width);
+    scratch.height = Math.max(scratch.height, cv.height);
+  }
+  const sx = scratch.getContext('2d');
+  sx.setTransform(1, 0, 0, 1, 0, 0);
+  sx.clearRect(0, 0, cv.width, cv.height);
+  sx.setTransform(ctx.getTransform());
+  fn(sx);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = a;
+  ctx.globalCompositeOperation = mode;
+  ctx.drawImage(scratch, 0, 0, cv.width, cv.height, 0, 0, cv.width, cv.height);
+  ctx.restore();
 }
 
 // ---------- espaço vazio ----------
@@ -442,7 +651,7 @@ export function drawSide(ctx, design, sideName, getImg, opt) {
   for (const layer of side.layers) {
     if (layer.type !== 'photo' || layer.cell !== BG_CELL) continue;
     const img = getImg(layer.imageKey);
-    if (img) drawPhoto(ctx, img, layer, ccx, ccy, k, maxSide, layer.id === rawLayerId);
+    if (img) withLayerFx(ctx, layer, (c) => drawPhoto(c, img, layer, ccx, ccy, k, maxSide, layer.id === rawLayerId));
   }
 
   paintFrame(ctx, side.frame, design, area, card, k);
@@ -464,14 +673,14 @@ export function drawSide(ctx, design, sideName, getImg, opt) {
       ctx.save();
       roundRectPath(ctx, left + cell.x * k, top + cell.y * k, cell.w * k, cell.h * k, cell.r * k);
       ctx.clip();
-      drawPhoto(ctx, img, layer, ccx + cell.cx * k, ccy + cell.cy * k, k, maxSide, layer.id === rawLayerId);
+      withLayerFx(ctx, layer, (c) => drawPhoto(c, img, layer, ccx + cell.cx * k, ccy + cell.cy * k, k, maxSide, layer.id === rawLayerId));
       ctx.restore();
     } else if (layer.type === 'text') {
-      drawText(ctx, layer, ccx + layer.x * k, ccy + layer.y * k, k);
+      withLayerFx(ctx, layer, (c) => drawText(c, layer, ccx + layer.x * k, ccy + layer.y * k, k));
     } else if (layer.type === 'sticker') {
-      drawSticker(ctx, layer, ccx + layer.x * k, ccy + layer.y * k, k, getImg);
+      withLayerFx(ctx, layer, (c) => drawSticker(c, layer, ccx + layer.x * k, ccy + layer.y * k, k, getImg));
     } else if (layer.type === 'draw') {
-      drawStrokes(ctx, layer, ccx + layer.x * k, ccy + layer.y * k, k);
+      withLayerFx(ctx, layer, (c) => drawStrokes(c, layer, ccx + layer.x * k, ccy + layer.y * k, k));
     }
   }
   ctx.restore();

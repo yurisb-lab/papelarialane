@@ -5,6 +5,7 @@
 
 import { shade, luminance } from './card.js';
 import { cssFont } from './fonts.js';
+import { drawQr } from './qr.js';
 
 const P = (d) => new Path2D(d);
 
@@ -808,6 +809,9 @@ export function drawSticker(ctx, layer, px, py, k, getImg) {
     drawImageSticker(ctx, layer, b.w * k, b.h * k, getImg);
   } else if (layer.kind === 'calendar') {
     drawCalendar(ctx, layer, size);
+  } else if (layer.kind === 'qr') {
+    if (layer.flip) ctx.scale(-1, 1); // QR espelhado não lê
+    drawQr(ctx, layer.text, size, layer.color, layer.qrBg === undefined ? '#ffffff' : layer.qrBg);
   } else if (layer.kind === 'emoji') {
     ctx.font = `${size * 0.86}px ${EMOJI_FONT}`;
     ctx.textAlign = 'center';

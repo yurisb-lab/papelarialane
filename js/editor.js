@@ -3,7 +3,7 @@
 // A bolinha no canto de um texto ou adesivo também aumenta e gira, com um dedo ou o mouse.
 
 import { cardSize, cardRadius, unitOf, formatInfo, cellRects, cellFor, coverScale, newDesign, isBgPhoto, BG_CELL, HOLE } from './card.js';
-import { drawSide, drawPhoto, layerBox, roundRectPath } from './render.js';
+import { drawSide, drawPhoto, layerBox, layerBounds, roundRectPath } from './render.js';
 
 const ZOOM_MIN = 0.25; // foto: em relação ao "preencher o espaço"
 const ZOOM_MAX = 8;
@@ -15,7 +15,7 @@ const HANDLE_R = 14; // px
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
 export function createEditor(canvas, hooks = {}) {
-  const { getImg, onChange, onCommit, onSelect, onTap, onEmptyCell, onEditText, onDelete } = hooks;
+  const { getImg, onChange, onCommit, onSelect, onTap, onEmptyCell, onEditText, onDelete, onBrush } = hooks;
   const ctx = canvas.getContext('2d');
   let design = newDesign();
   let sideName = 'front';
@@ -28,6 +28,12 @@ export function createEditor(canvas, hooks = {}) {
   let checkerPattern = null;
   let drawPen = null; // modo desenho: { layerId, c, w, pen }
   let drawing = null; // risco sendo feito: { id, st, last }
+  let brush = null; // tirar fundo com o dedo (borracha ou restaurar): { r } em px da tela
+  let brushing = null; // pincelada sendo feita: { id }
+  let brushCursor = null; // onde o pincel está (px)
+  let pick = null; // conta-gotas: função que recebe a cor escolhida
+  let pickAt = null; // { x, y, color } enquanto o dedo está em cima
+  let multi = []; // ids marcados em "escolher várias" (só para mostrar)
 
   const pointers = new Map();
   let gesture = null;
@@ -111,12 +117,39 @@ export function createEditor(canvas, hooks = {}) {
     const a = (-layer.rotation * Math.PI) / 180;
     const dx = m.x - layer.x;
     const dy = m.y - layer.y;
-    const lx = dx * Math.cos(a) - dy * Math.sin(a);
-    const ly = dx * Math.sin(a) + dy * Math.cos(a);
+    const lx = dx * Math.cos(a) - dy * Math.sin(a) - b.ox;
+    const ly = dx * Math.sin(a) + dy * Math.cos(a) - b.oy;
     const hw = Math.max(b.w / 2, 3.5) + 0.8;
     const hh = Math.max(b.h / 2, 3.5) + 0.8;
     return Math.abs(lx) <= hw && Math.abs(ly) <= hh;
   }
+
+  // ---------- grupos ----------
+  // Peças com o mesmo "group" andam, giram e mudam de tamanho juntas (fotos dos espaços não entram).
+  function groupOf(layer) {
+    if (!layer || layer.type === 'photo' || !layer.group) return layer ? [layer] : [];
+    const list = side().layers.filter((l) => l.group === layer.group && l.type !== 'photo');
+    return list.length ? list : [layer];
+  }
+
+  function boundsOf(list) {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const l of list) {
+      const b = layerBounds(l);
+      x0 = Math.min(x0, b.x0);
+      y0 = Math.min(y0, b.y0);
+      x1 = Math.max(x1, b.x1);
+      y1 = Math.max(y1, b.y1);
+    }
+    return { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
+  }
+
+  const isGroup = (layer) => groupOf(layer).length > 1;
+  // Presa: a peça (ou alguma do grupo dela) não sai do lugar.
+  const isLocked = (layer) => groupOf(layer).some((m) => m.locked);
 
   function hitLayer(m) {
     const ls = side().layers;
@@ -137,18 +170,22 @@ export function createEditor(canvas, hooks = {}) {
   const hitCell = (m) => cells().findIndex((c) => inCell(m, c));
 
   function handlePos(layer) {
-    const b = layerBox(layer);
     const k = view.k;
+    if (isGroup(layer)) {
+      const g = boundsOf(groupOf(layer));
+      return { x: view.cx + g.x1 * k + 10, y: view.cy + g.y1 * k + 10 };
+    }
+    const b = layerBox(layer);
     const a = (layer.rotation * Math.PI) / 180;
-    const lx = (b.w / 2) * k + 6;
-    const ly = (b.h / 2) * k + 6;
+    const lx = (b.ox + b.w / 2) * k + 6;
+    const ly = (b.oy + b.h / 2) * k + 6;
     const c = layerCenterPx(layer);
     return { x: c.x + lx * Math.cos(a) - ly * Math.sin(a), y: c.y + lx * Math.sin(a) + ly * Math.cos(a) };
   }
 
   function onHandle(p) {
     const l = selectedLayer();
-    if (!l || l.type === 'photo' || tapMode) return false;
+    if (!l || l.type === 'photo' || tapMode || isLocked(l)) return false;
     const h = handlePos(l);
     return Math.hypot(p.x - h.x, p.y - h.y) <= HANDLE_R + 8;
   }
@@ -254,7 +291,10 @@ export function createEditor(canvas, hooks = {}) {
       ctx.restore();
     }
 
-    drawSelection(sl);
+    drawMulti();
+    if (!pick) drawSelection(sl);
+    drawBrushCursor();
+    drawPickLoupe();
   }
 
   // Linhas de ajuda de cada formato: borda do botton, borda do papelão, furo do marcador.
@@ -342,22 +382,28 @@ export function createEditor(canvas, hooks = {}) {
       ctx.restore();
       return;
     }
-    const b = layerBox(l);
-    const c = layerCenterPx(l);
-    ctx.save();
-    ctx.translate(c.x, c.y);
-    ctx.rotate((l.rotation * Math.PI) / 180);
-    const w = b.w * k + 8;
-    const h = b.h * k + 8;
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.strokeRect(-w / 2, -h / 2, w, h);
-    ctx.setLineDash([6, 4]);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#7a52d1';
-    ctx.strokeRect(-w / 2, -h / 2, w, h);
-    ctx.restore();
+    if (isGroup(l)) {
+      // grupo: uma caixa em volta de todas as peças
+      const g = boundsOf(groupOf(l));
+      ctx.save();
+      const x = view.cx + g.x0 * k - 6;
+      const y = view.cy + g.y0 * k - 6;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.strokeRect(x, y, g.w * k + 12, g.h * k + 12);
+      ctx.setLineDash([10, 4, 2, 4]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#7a52d1';
+      ctx.strokeRect(x, y, g.w * k + 12, g.h * k + 12);
+      ctx.restore();
+    } else {
+      outlineLayer(l, '#7a52d1', [6, 4]);
+    }
     if (tapMode) return;
+    if (isLocked(l)) {
+      drawLockBadge(handlePos(l));
+      return;
+    }
     const hp = handlePos(l);
     ctx.save();
     ctx.beginPath();
@@ -384,6 +430,123 @@ export function createEditor(canvas, hooks = {}) {
     ctx.lineTo(ex + 1, ey - 4);
     ctx.stroke();
     ctx.restore();
+  }
+
+  // Caixa tracejada em volta de uma peça (texto, adesivo ou desenho).
+  function outlineLayer(l, color, dash) {
+    const k = view.k;
+    const b = layerBox(l);
+    const c = layerCenterPx(l);
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate((l.rotation * Math.PI) / 180);
+    ctx.translate(b.ox * k, b.oy * k);
+    const w = b.w * k + 8;
+    const h = b.h * k + 8;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.strokeRect(-w / 2, -h / 2, w, h);
+    ctx.setLineDash(dash);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = color;
+    ctx.strokeRect(-w / 2, -h / 2, w, h);
+    ctx.restore();
+  }
+
+  // Cadeadinho no lugar da bolinha, quando a peça está presa.
+  function drawLockBadge(p) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, HANDLE_R, 0, Math.PI * 2);
+    ctx.fillStyle = '#5d5466';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(p.x - 5, p.y - 1, 10, 7);
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y - 2, 3.4, Math.PI, 0);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Peças marcadas em "escolher várias".
+  function drawMulti() {
+    for (const id of multi) {
+      const l = layerById(id);
+      if (l && l.type !== 'photo') outlineLayer(l, '#2f8f6b', [3, 3]);
+    }
+  }
+
+  function drawBrushCursor() {
+    if (!tapMode || !brush || !brushCursor) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(brushCursor.x, brushCursor.y, brush.r, 0, Math.PI * 2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+    ctx.stroke();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = brush.restore ? '#2f8f6b' : '#7a52d1';
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Lupa do conta-gotas: um pouco acima do dedo, para dar para ver a cor.
+  function drawPickLoupe() {
+    if (!pick || !pickAt) return;
+    const x = pickAt.x;
+    const y = Math.max(34, pickAt.y - 64);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, 28, 0, Math.PI * 2);
+    ctx.fillStyle = pickAt.color || 'rgba(255,255,255,0.6)';
+    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(42, 29, 37, 0.6)';
+    ctx.stroke();
+    // mira no ponto exato
+    ctx.beginPath();
+    ctx.arc(pickAt.x, pickAt.y, 6, 0, Math.PI * 2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#2a1d25';
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Cor do card num ponto da tela (sem as linhas de ajuda), em #rrggbb, ou null fora do card.
+  function sampleColor(p) {
+    const r = cardRect();
+    const c = document.createElement('canvas');
+    c.width = c.height = 3;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    drawSide(g, design, sideName, getImg, { left: r.left - p.x + 1.5, top: r.top - p.y + 1.5, k: view.k, maxSide: 1600 });
+    const d = g.getImageData(0, 0, 3, 3).data;
+    let R = 0;
+    let G = 0;
+    let B = 0;
+    let A = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const a = d[i + 3] / 255;
+      R += d[i] * a + 255 * (1 - a);
+      G += d[i + 1] * a + 255 * (1 - a);
+      B += d[i + 2] * a + 255 * (1 - a);
+      A += a;
+    }
+    if (A < 0.5) return null;
+    const hex = (v) => Math.round(v / 9).toString(16).padStart(2, '0');
+    return `#${hex(R)}${hex(G)}${hex(B)}`;
   }
 
   function redraw() {
@@ -470,22 +633,66 @@ export function createEditor(canvas, hooks = {}) {
       gesture = null;
       return;
     }
-    const start = clone(target);
+    const moved = gesture ? gesture.moved : false;
+    if (!tapMode && isLocked(target)) {
+      gesture = { type: 'locked', id: target.id, moved };
+      return;
+    }
+    const members = tapMode ? [target] : groupOf(target);
+    const base = { id: target.id, start: clone(target), moved };
+    if (members.length > 1) {
+      const g = boundsOf(members);
+      base.group = members.map((m) => ({ id: m.id, s: clone(m) }));
+      base.gc = { x: view.cx + g.cx * view.k, y: view.cy + g.cy * view.k };
+    }
     if (pts.length === 1) {
-      gesture = { type: handleDown ? 'handle' : 'pan', id: target.id, start, p0: { ...pts[0] }, moved: gesture ? gesture.moved : false };
+      gesture = { ...base, type: handleDown ? 'handle' : 'pan', p0: { ...pts[0] } };
     } else {
       const [a, b] = pts;
       gesture = {
+        ...base,
         type: 'pinch',
-        id: target.id,
-        start,
         m0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
         d0: Math.hypot(b.x - a.x, b.y - a.y) || 1,
         a0: Math.atan2(b.y - a.y, b.x - a.x),
-        moved: gesture ? gesture.moved : false,
       };
     }
   }
+
+  // Grupo: tudo gira e aumenta em volta do ponto (px, py), na mesma proporção.
+  function transformGroup(g, px, py, ratio, daDeg, mx = 0, my = 0) {
+    let rmin = 0;
+    let rmax = Infinity;
+    for (const { s } of g.group) {
+      const [lo, hi] = SIZE[s.type] || SIZE.sticker;
+      rmin = Math.max(rmin, lo / s.size);
+      rmax = Math.min(rmax, (hi * unitOf(design)) / s.size);
+    }
+    const r = Math.min(rmax, Math.max(rmin, ratio));
+    const da = (daDeg * Math.PI) / 180;
+    for (const { id, s } of g.group) {
+      const L = layerById(id);
+      if (!L) continue;
+      const c = aroundPivot({ x: view.cx + s.x * view.k, y: view.cy + s.y * view.k }, px, py, r, da, mx, my);
+      L.x = (c.x - view.cx) / view.k;
+      L.y = (c.y - view.cy) / view.k;
+      L.size = s.size * r;
+      if (s.arcR) L.arcR = s.arcR * r;
+      L.rotation = Math.round(((((s.rotation + daDeg + 180) % 360) + 360) % 360) * 10) / 10 - 180;
+    }
+  }
+
+  function moveGroup(g, dx, dy) {
+    for (const { id, s } of g.group) {
+      const L = layerById(id);
+      if (!L) continue;
+      L.x = s.x + dx;
+      L.y = s.y + dy;
+    }
+  }
+
+  // Ângulo pequeno perto de zero vira zero (para o grupo voltar reto fácil).
+  const snapDelta = (d) => (Math.abs(d) <= SNAP_DEG ? 0 : d);
 
   const r2 = (v) => Math.round(v * 100) / 100;
 
@@ -494,6 +701,14 @@ export function createEditor(canvas, hooks = {}) {
       canvas.setPointerCapture(e.pointerId);
     } catch (_) {
       /* alguns navegadores recusam; o gesto funciona igual */
+    }
+    if (pick) {
+      // conta-gotas: o dedo mostra a cor; ao soltar, ela é escolhida
+      e.preventDefault();
+      const p = localPoint(e);
+      pickAt = { id: e.pointerId, x: p.x, y: p.y, color: sampleColor(p) };
+      redraw();
+      return;
     }
     if (drawPen) {
       e.preventDefault();
@@ -505,6 +720,20 @@ export function createEditor(canvas, hooks = {}) {
       layer.strokes.push(st);
       drawing = { id: e.pointerId, st, last: m };
       changed();
+      return;
+    }
+    if (tapMode && brush) {
+      // borracha / restaurar: um dedo pinta; os outros são ignorados
+      e.preventDefault();
+      if (brushing) return;
+      const l = layerById(rawLayerId);
+      const p = localPoint(e);
+      brushCursor = p;
+      const pt = l && api.screenToImage(l, p.x, p.y, false);
+      if (!pt) return;
+      brushing = { id: e.pointerId };
+      onBrush && onBrush('start', pt);
+      redraw();
       return;
     }
     const p = localPoint(e);
@@ -542,6 +771,14 @@ export function createEditor(canvas, hooks = {}) {
   });
 
   canvas.addEventListener('pointermove', (e) => {
+    if (pick) {
+      if (pickAt && pickAt.id === e.pointerId) {
+        const p = localPoint(e);
+        pickAt = { id: e.pointerId, x: p.x, y: p.y, color: sampleColor(p) };
+        redraw();
+      }
+      return;
+    }
     if (drawing && e.pointerId === drawing.id) {
       const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
       let moved = false;
@@ -556,6 +793,21 @@ export function createEditor(canvas, hooks = {}) {
       return;
     }
     if (drawPen) return;
+    if (tapMode && brush) {
+      const p = localPoint(e);
+      brushCursor = p;
+      if (brushing && e.pointerId === brushing.id) {
+        const l = layerById(rawLayerId);
+        const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+        for (const ev of evs.length ? evs : [e]) {
+          const q = localPoint(ev);
+          const pt = l && api.screenToImage(l, q.x, q.y, false);
+          if (pt && onBrush) onBrush('move', pt);
+        }
+      }
+      redraw();
+      return;
+    }
     if (!pointers.has(e.pointerId)) {
       // mouse passando por cima: mostra a mãozinha certa
       const p = localPoint(e);
@@ -569,12 +821,46 @@ export function createEditor(canvas, hooks = {}) {
       if (Math.hypot(lp.x - tap.x, lp.y - tap.y) > 8) tap = null;
       else if (tapMode) return;
     }
-    if (!gesture) return;
+    if (!gesture || gesture.type === 'locked') return;
     const layer = layerById(gesture.id);
     if (!layer) return;
     const g = gesture;
     const pts = [...pointers.values()];
     const k = view.k;
+    if (g.group) {
+      if (g.type === 'pan' && pts.length === 1) {
+        let dx = (pts[0].x - g.p0.x) / k;
+        let dy = (pts[0].y - g.p0.y) / k;
+        // o meio do grupo gruda no meio do card
+        guides = { v: false, h: false };
+        const gx = (g.gc.x - view.cx) / k + dx;
+        const gy = (g.gc.y - view.cy) / k + dy;
+        if (Math.abs(gx) < SNAP_MM) {
+          dx -= gx;
+          guides.v = true;
+        }
+        if (Math.abs(gy) < SNAP_MM) {
+          dy -= gy;
+          guides.h = true;
+        }
+        moveGroup(g, dx, dy);
+      } else if (g.type === 'handle' && pts.length === 1) {
+        const v0 = { x: g.p0.x - g.gc.x, y: g.p0.y - g.gc.y };
+        const v = { x: pts[0].x - g.gc.x, y: pts[0].y - g.gc.y };
+        const ratio = (Math.hypot(v.x, v.y) || 1) / (Math.hypot(v0.x, v0.y) || 1);
+        const da = snapDelta(((Math.atan2(v.y, v.x) - Math.atan2(v0.y, v0.x)) * 180) / Math.PI);
+        transformGroup(g, g.gc.x, g.gc.y, ratio, da);
+      } else if (g.type === 'pinch' && pts.length >= 2) {
+        const [a, b] = pts;
+        const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        const d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+        const da = snapDelta(((Math.atan2(b.y - a.y, b.x - a.x) - g.a0) * 180) / Math.PI);
+        transformGroup(g, g.m0.x, g.m0.y, d / g.d0, da, m.x - g.m0.x, m.y - g.m0.y);
+      }
+      g.moved = true;
+      changed();
+      return;
+    }
     if (g.type === 'pan' && pts.length === 1) {
       layer.x = g.start.x + (pts[0].x - g.p0.x) / k;
       layer.y = g.start.y + (pts[0].y - g.p0.y) / k;
@@ -600,10 +886,36 @@ export function createEditor(canvas, hooks = {}) {
     changed();
   });
 
+  canvas.addEventListener('pointerleave', () => {
+    if (brush && !brushing && brushCursor) {
+      brushCursor = null;
+      redraw();
+    }
+  });
+
   function endPointer(e) {
+    if (pick) {
+      if (!pickAt || pickAt.id !== e.pointerId) return;
+      const color = e.type === 'pointerup' ? pickAt.color : null;
+      const fn = pick;
+      pickAt = null;
+      if (e.type !== 'pointerup') return redraw();
+      pick = null;
+      canvas.classList.remove('is-pick-mode');
+      redraw();
+      fn(color);
+      return;
+    }
     if (drawing && e.pointerId === drawing.id) {
       drawing = null;
       commit();
+      return;
+    }
+    if (brushing && e.pointerId === brushing.id) {
+      brushing = null;
+      if (e.pointerType !== 'mouse') brushCursor = null;
+      redraw();
+      onBrush && onBrush('end');
       return;
     }
     if (!pointers.has(e.pointerId)) return;
@@ -646,22 +958,32 @@ export function createEditor(canvas, hooks = {}) {
   canvas.addEventListener(
     'wheel',
     (e) => {
-      if (drawPen) return;
+      if (drawPen || pick || (tapMode && brush)) return;
       const p = localPoint(e);
       const sl = selectedLayer();
       let layer = tapMode ? layerById(rawLayerId) : isBgPhoto(sl) ? sl : hitLayer(toMM(p)) || sl;
       if (!layer) return;
       e.preventDefault();
       if (!tapMode && (!sel || sel.id !== layer.id)) setSel({ id: layer.id });
-      const start = clone(layer);
-      if (e.shiftKey) {
-        const c = layerCenterPx(layer);
-        const pivot = layer.type === 'photo' ? cellCenterPx(cellOf(layer)) : c;
-        scaleRotate(layer, start, pivot.x, pivot.y, 1, snapRotation(layer.rotation + Math.sign(e.deltaY) * 3));
+      if (!tapMode && isLocked(layer)) return;
+      const members = tapMode ? [layer] : groupOf(layer);
+      if (members.length > 1) {
+        const gb = boundsOf(members);
+        const g = { group: members.map((m) => ({ id: m.id, s: clone(m) })) };
+        const gc = { x: view.cx + gb.cx * view.k, y: view.cy + gb.cy * view.k };
+        if (e.shiftKey) transformGroup(g, gc.x, gc.y, 1, Math.sign(e.deltaY) * 3);
+        else transformGroup(g, gc.x, gc.y, Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), 0);
       } else {
-        const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
-        const pivot = layer.type === 'photo' ? p : layerCenterPx(layer);
-        scaleRotate(layer, start, pivot.x, pivot.y, factor, layer.rotation);
+        const start = clone(layer);
+        if (e.shiftKey) {
+          const c = layerCenterPx(layer);
+          const pivot = layer.type === 'photo' ? cellCenterPx(cellOf(layer)) : c;
+          scaleRotate(layer, start, pivot.x, pivot.y, 1, snapRotation(layer.rotation + Math.sign(e.deltaY) * 3));
+        } else {
+          const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015));
+          const pivot = layer.type === 'photo' ? p : layerCenterPx(layer);
+          scaleRotate(layer, start, pivot.x, pivot.y, factor, layer.rotation);
+        }
       }
       changed();
       clearTimeout(wheelTimer);
@@ -671,6 +993,11 @@ export function createEditor(canvas, hooks = {}) {
   );
 
   canvas.addEventListener('keydown', (e) => {
+    if (pick && e.key === 'Escape') {
+      api.setPickMode(null);
+      hooks.onPickCancel && hooks.onPickCancel();
+      return;
+    }
     const layer = selectedLayer();
     if (!layer) return;
     if ((e.key === 'Delete' || e.key === 'Backspace') && !tapMode) {
@@ -682,15 +1009,25 @@ export function createEditor(canvas, hooks = {}) {
       setSel(null);
       return;
     }
+    if (!tapMode && isLocked(layer)) return;
     const step = e.shiftKey ? 5 : 1;
     const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    const members = tapMode ? [layer] : groupOf(layer);
     if (moves[e.key]) {
-      layer.x += moves[e.key][0];
-      layer.y += moves[e.key][1];
+      for (const l of members) {
+        l.x += moves[e.key][0];
+        l.y += moves[e.key][1];
+      }
     } else if (e.key === '+' || e.key === '=' || e.key === '-') {
-      const start = clone(layer);
-      const c = layer.type === 'photo' ? cellCenterPx(cellOf(layer)) : layerCenterPx(layer);
-      scaleRotate(layer, start, c.x, c.y, e.key === '-' ? 1 / 1.1 : 1.1, layer.rotation);
+      const f = e.key === '-' ? 1 / 1.1 : 1.1;
+      if (members.length > 1) {
+        const gb = boundsOf(members);
+        transformGroup({ group: members.map((m) => ({ id: m.id, s: clone(m) })) }, view.cx + gb.cx * view.k, view.cy + gb.cy * view.k, f, 0);
+      } else {
+        const start = clone(layer);
+        const c = layer.type === 'photo' ? cellCenterPx(cellOf(layer)) : layerCenterPx(layer);
+        scaleRotate(layer, start, c.x, c.y, f, layer.rotation);
+      }
     } else return;
     e.preventDefault();
     changed();
@@ -729,6 +1066,7 @@ export function createEditor(canvas, hooks = {}) {
           l.x *= nw.w / old.w;
           l.y *= nw.h / old.h;
           if (ru !== 1 && l.size) l.size *= ru;
+          if (ru !== 1 && l.arcR) l.arcR *= ru;
         }
       }
     }
@@ -757,7 +1095,10 @@ export function createEditor(canvas, hooks = {}) {
       if (!design.format) design.format = 'card';
       drawPen = null;
       drawing = null;
-      canvas.classList.remove('is-draw-mode');
+      pick = null;
+      pickAt = null;
+      multi = [];
+      canvas.classList.remove('is-draw-mode', 'is-pick-mode');
       sideName = s;
       sel = null;
       layout();
@@ -903,11 +1244,47 @@ export function createEditor(canvas, hooks = {}) {
       tapMode = !!on;
       rawLayerId = on ? layerId : null;
       canvas.classList.toggle('is-tap-mode', tapMode);
+      if (!on) {
+        brush = null;
+        brushing = null;
+        brushCursor = null;
+        canvas.classList.remove('is-brush-mode');
+      }
       redraw();
     },
 
-    // Ponto da tela -> pixel da foto (ou null se caiu fora dela).
-    screenToImage(layer, px, py) {
+    // Tirar fundo com o dedo: { r (px da tela), restore } ou null (volta a tocar na cor).
+    setBrush(b) {
+      brush = b ? { ...b } : null;
+      brushing = null;
+      if (!brush) brushCursor = null;
+      canvas.classList.toggle('is-brush-mode', !!brush);
+      redraw();
+    },
+    // Quantos pixels da tela vale um pixel da foto.
+    imageScale(layer) {
+      return layer.scale * view.k;
+    },
+
+    // Conta-gotas: o próximo toque no card devolve a cor (ou null) para fn.
+    setPickMode(fn) {
+      pick = fn || null;
+      pickAt = null;
+      canvas.classList.toggle('is-pick-mode', !!pick);
+      redraw();
+    },
+    isPicking: () => !!pick,
+
+    // Marcas de "escolher várias".
+    setMulti(ids) {
+      multi = ids ? ids.slice() : [];
+      redraw();
+    },
+    groupOf: (layer) => groupOf(layer),
+    boundsOf: (list) => boundsOf(list),
+
+    // Ponto da tela -> pixel da foto (ou null se caiu fora dela, quando clamp).
+    screenToImage(layer, px, py, clamp = true) {
       const s = imgSize(layer);
       if (!s) return null;
       const c = layerCenterPx(layer);
@@ -919,7 +1296,7 @@ export function createEditor(canvas, hooks = {}) {
       const ry = vx * Math.sin(a) + vy * Math.cos(a);
       vx = (layer.flip ? -rx : rx) / (layer.scale * k) + s.iw / 2;
       vy = ry / (layer.scale * k) + s.ih / 2;
-      if (vx < 0 || vy < 0 || vx >= s.iw || vy >= s.ih) return null;
+      if (clamp && (vx < 0 || vy < 0 || vx >= s.iw || vy >= s.ih)) return null;
       return { x: vx, y: vy };
     },
 

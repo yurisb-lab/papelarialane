@@ -5209,3 +5209,266 @@ span.slot {
 .bprev__swatch--dark {
   background: #2b2624;
 }
+
+/* ---------- Pacote de ferramentas novas ---------- */
+.ic--flipv {
+  transform: scaleY(-1);
+}
+
+/* Conta-gotas na fileira de cores */
+.swatch--pick {
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: var(--ink);
+}
+
+.stage__canvas.is-pick-mode {
+  cursor: crosshair;
+}
+
+.stage__canvas.is-brush-mode {
+  cursor: none;
+}
+
+/* Ferramentas do tirar fundo */
+.bg-tools {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.bg-tool {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-height: 64px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--ink);
+}
+
+.bg-tool .ic {
+  color: var(--lilac-ink);
+}
+
+.bg-tool:hover {
+  background: #fff;
+}
+
+.bg-tool[aria-pressed='true'] {
+  background: #fff;
+  box-shadow: inset 0 0 0 3px var(--lilac-ink);
+}
+
+.brush-dot {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: none;
+}
+
+.brush-dot::before {
+  content: '';
+  width: var(--d);
+  height: var(--d);
+  border-radius: 50%;
+  background: var(--lilac-ink);
+  opacity: 0.75;
+}
+
+.maker__canvas.is-brush {
+  touch-action: none;
+  cursor: none;
+}
+
+@media (max-width: 520px) {
+  .bg-tools {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Escolha de letra */
+.packs--fonts .pack-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.font-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: var(--s2);
+  max-height: 330px;
+  overflow-y: auto;
+  padding: 2px;
+  scrollbar-width: thin;
+}
+
+.fcard {
+  display: grid;
+  border-radius: 12px;
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.fcard.is-on {
+  background: var(--lilac);
+  box-shadow: inset 0 0 0 3px var(--lilac-ink);
+}
+
+.fcard__pick {
+  min-height: 62px;
+  padding: 10px 10px 2px;
+  font-size: 24px;
+  line-height: 1.15;
+  color: var(--ink);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fcard__pick:hover {
+  background: var(--pink-soft);
+}
+
+.fcard__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 0 4px 4px 10px;
+}
+
+.fcard__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+
+.fcard__fav {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 8px;
+  color: var(--ink-2);
+}
+
+.fcard__fav[aria-pressed='true'] {
+  color: var(--gold);
+}
+
+.fcard__fav:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.pair-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--s2);
+}
+
+.pair-card {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  padding: 12px 10px 8px;
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  text-align: center;
+  min-width: 0;
+}
+
+.pair-card:hover {
+  background: var(--pink-soft);
+}
+
+.pair-card__t {
+  max-width: 100%;
+  font-size: 28px;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pair-card__b {
+  font-size: 15px;
+}
+
+.pair-card__n {
+  margin-top: 4px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+
+/* Alinhar, peças marcadas e presas */
+.align-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.layer__check {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--line);
+  color: var(--lilac-ink);
+}
+
+.layer.is-on .layer__check {
+  box-shadow: inset 0 0 0 2px var(--lilac-ink);
+}
+
+.layer__pick:disabled {
+  opacity: 0.45;
+}
+
+.layer__lock {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  color: var(--ink-2);
+}
+
+/* Temas: letras por grupo */
+.font-groups {
+  display: grid;
+  grid-auto-rows: max-content;
+  gap: 6px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 2px;
+  scrollbar-width: thin;
+}
+
+.font-groups__name {
+  margin: 6px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ink-2);
+}
